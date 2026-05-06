@@ -15,10 +15,7 @@ const formatDate = (value: string) =>
 const stars = (score: number) => "★★★★★".slice(0, Math.max(1, Math.min(5, Math.round(score || 4))));
 
 const downloadArtworkJson = (project: ARProject) => {
-  const payload = {
-    ...project,
-    downloadedAt: new Date().toISOString(),
-  };
+  const payload = { ...project, downloadedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -37,7 +34,7 @@ export const Gallery = () => {
   const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(null);
   const [openMenuFolderId, setOpenMenuFolderId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("讀取作品中");
+  const [status, setStatus] = useState("載入作品中");
 
   const load = async () => {
     const [nextFolders, nextProjects] = await Promise.all([projectRepository.listFolders(), projectRepository.listProjects()]);
@@ -84,7 +81,7 @@ export const Gallery = () => {
   };
 
   const deleteArtwork = async (project: ARProject) => {
-    const confirmed = window.confirm(`確定要刪除「${project.name}」嗎？本機模式只會刪除該作品的 project.json，素材檔會先保留。`);
+    const confirmed = window.confirm(`確定刪除作品「${project.name}」？這只會刪除單一作品資料，不會批量刪除檔案。`);
     if (!confirmed) return;
     await projectRepository.deleteProject(project.id);
     setOpenMenuProjectId(null);
@@ -102,7 +99,7 @@ export const Gallery = () => {
   const publishFolder = async (folder: ARFolder) => {
     const folderProjects = projects.filter((project) => project.folderId === folder.id);
     if (folderProjects.length === 0) {
-      setStatus("這個資料夾目前沒有作品可發布");
+      setStatus("此資料夾沒有作品可發布");
       setOpenMenuFolderId(null);
       return;
     }
@@ -113,7 +110,7 @@ export const Gallery = () => {
   };
 
   const deleteFolder = async (folder: ARFolder) => {
-    const confirmed = window.confirm(`確定要刪除資料夾「${folder.name}」嗎？作品和素材不會被刪除，只會移除這個分類。`);
+    const confirmed = window.confirm(`確定刪除資料夾「${folder.name}」？作品不會被刪除，只會移除分類。`);
     if (!confirmed) return;
     await projectRepository.deleteFolder(folder.id);
     if (selectedFolder === folder.id) setSelectedFolder(null);
@@ -162,19 +159,11 @@ export const Gallery = () => {
             <span>全部作品</span>
           </button>
           {folders.map((folder) => (
-            <div
-              className={`folder-card folder-card-menu ${selectedFolder === folder.id ? "selected" : ""} ${openMenuFolderId === folder.id ? "menu-open" : ""}`}
-              key={folder.id}
-              onClick={() => setSelectedFolder(folder.id)}
-            >
+            <div className={`folder-card folder-card-menu ${selectedFolder === folder.id ? "selected" : ""} ${openMenuFolderId === folder.id ? "menu-open" : ""}`} key={folder.id} onClick={() => setSelectedFolder(folder.id)}>
               <FolderPlus size={36} />
               <span>{folder.name}</span>
               <div className="folder-menu-wrap" onClick={(event) => event.stopPropagation()}>
-                <button
-                  className="card-icon"
-                  title="Folder actions"
-                  onClick={() => setOpenMenuFolderId((current) => (current === folder.id ? null : folder.id))}
-                >
+                <button className="card-icon" title="Folder actions" onClick={() => setOpenMenuFolderId((current) => (current === folder.id ? null : folder.id))}>
                   <MoreVertical size={22} />
                 </button>
                 {openMenuFolderId === folder.id && (
@@ -208,7 +197,7 @@ export const Gallery = () => {
         <div className="artwork-grid">
           {filteredProjects.length === 0 && (
             <div className="empty-gallery">
-              <p>還沒有作品。建立一個 AR project 後，這裡會出現可分類的作品卡。</p>
+              <p>目前沒有作品。建立 AR project 後，可以上傳 Trigger Image、圖層並產生手機掃描頁。</p>
               <button onClick={createArtwork}>Create Artwork</button>
             </div>
           )}
@@ -237,11 +226,7 @@ export const Gallery = () => {
                   <Play size={22} fill="currentColor" />
                 </a>
                 <div className="artwork-menu-wrap" onClick={(event) => event.stopPropagation()}>
-                  <button
-                    className="card-icon"
-                    title="More"
-                    onClick={() => setOpenMenuProjectId((current) => (current === project.id ? null : project.id))}
-                  >
+                  <button className="card-icon" title="More" onClick={() => setOpenMenuProjectId((current) => (current === project.id ? null : project.id))}>
                     <MoreVertical size={22} />
                   </button>
                   {openMenuProjectId === project.id && (

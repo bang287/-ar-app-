@@ -66,6 +66,12 @@ export type UploadedAsset = {
   url: string;
 };
 
+export type MindCompileResult = {
+  mindTargetId: string;
+  mindTargetUrl: string;
+  source: "supabase-function" | "browser-fallback" | "local-api";
+};
+
 export type StoredAsset = {
   id: string;
   name: string;

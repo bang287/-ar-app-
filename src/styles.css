@@ -109,6 +109,26 @@ h1 {
   line-height: 1.2;
 }
 
+.project-name-input {
+  width: min(100%, 260px);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  margin: 0;
+  padding: 2px 4px;
+  color: #0f172a;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.project-name-input:hover,
+.project-name-input:focus {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  outline: none;
+}
+
 .status-dot {
   max-width: 120px;
   color: var(--text-soft);
@@ -412,7 +432,7 @@ h1 {
 
 .mobile-demo-banner {
   position: absolute;
-  top: 68px;
+  top: 124px;
   right: 16px;
   z-index: 6;
   display: flex;
@@ -442,7 +462,8 @@ h1 {
   position: absolute;
   left: 20px;
   right: 20px;
-  bottom: 8px;
+  top: 68px;
+  bottom: auto;
   z-index: 3;
   display: grid;
   grid-template-columns: 38px 54px minmax(0, 1fr) 54px;

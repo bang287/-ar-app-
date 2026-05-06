@@ -1,4 +1,4 @@
-import type { ARFolder, ARProject, UploadedAsset } from "../types/project";
+import type { ARFolder, ARProject, MindCompileResult, UploadedAsset } from "../types/project";
 import { createDefaultProject } from "./defaultProject";
 import { dataBackend, supabase, supabaseBucket, supabaseConfigured } from "./supabaseClient";
 
@@ -188,5 +188,21 @@ export const supabaseProjectRepository = {
       type: file.type || "application/octet-stream",
       url: storagePublicUrl(path) ?? "",
     } satisfies UploadedAsset;
+  },
+
+  async compileMindTarget(projectId: string, triggerImagePath: string): Promise<MindCompileResult> {
+    const client = requireSupabase();
+    const { data, error } = await client.functions.invoke("compile-mind-target", {
+      body: { projectId, triggerImagePath, bucket: supabaseBucket },
+    });
+    if (error) throw error;
+    if (!data?.mindTargetId || !data?.mindTargetUrl) {
+      throw new Error("Supabase function did not return a .mind target");
+    }
+    return {
+      mindTargetId: data.mindTargetId,
+      mindTargetUrl: data.mindTargetUrl,
+      source: "supabase-function",
+    };
   },
 };

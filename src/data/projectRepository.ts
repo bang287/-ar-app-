@@ -1,5 +1,5 @@
 import { createDefaultProject } from "./defaultProject";
-import type { ARFolder, ARProject, StoredAsset, UploadedAsset } from "../types/project";
+import type { ARFolder, ARProject, MindCompileResult, StoredAsset, UploadedAsset } from "../types/project";
 import { shouldUseSupabase, supabaseProjectRepository } from "./supabaseProjectRepository";
 
 const DB_NAME = "webar-layer-editor";
@@ -209,6 +209,20 @@ export const projectRepository = {
       type: asset.type,
       url: URL.createObjectURL(file),
     } satisfies UploadedAsset;
+  },
+
+  async compileMindTarget(projectId: string, triggerImagePath: string): Promise<MindCompileResult> {
+    if (shouldUseSupabase()) return supabaseProjectRepository.compileMindTarget(projectId, triggerImagePath);
+    if (await this.apiAvailable()) {
+      const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/compile-mind`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triggerImagePath }),
+      });
+      if (!response.ok) throw new Error("Local API cannot compile .mind yet");
+      return (await response.json()) as MindCompileResult;
+    }
+    throw new Error("No backend .mind compiler is configured");
   },
 
   async saveAsset(file: File) {

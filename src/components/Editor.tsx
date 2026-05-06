@@ -21,8 +21,8 @@ import {
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
-import type { ARLayer, ARProject, LayerKind } from "../types/project";
-import { compileMindTarget } from "../ar/mindCompiler";
+import type { ARLayer, ARProject, MindCompileResult } from "../types/project";
+import { compileMindTarget as compileMindTargetInBrowser } from "../ar/mindCompiler";
 import { createDefaultProject, createLayer } from "../data/defaultProject";
 import { projectRepository } from "../data/projectRepository";
 import { applyLayerTransform, createLayerMesh, type LayerMesh } from "../three/layerMesh";
@@ -60,22 +60,23 @@ const friendlyError = (error: unknown) => (error instanceof Error ? error.messag
 
 const mindLabel = (status: MindStatus, progress: number) => {
   if (status === "ready") return ".mind ready";
-  if (status === "compiling") return `正在編譯 .mind ${progress}%`;
+  if (status === "compiling") return progress > 0 ? `正在產生 .mind ${progress}%` : "正在產生 .mind";
   if (status === "failed") return ".mind 產生失敗";
   return "尚未產生 .mind";
 };
 
 export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const orbitRef = useRef<OrbitControls | null>(null);
   const transformRef = useRef<TransformControls | null>(null);
   const triggerMeshRef = useRef<THREE.Mesh | null>(null);
   const layerMeshesRef = useRef<Map<string, LayerMesh>>(new Map());
   const selectedLayerRef = useRef<string | null>(null);
   const saveTimerRef = useRef<number | null>(null);
+
   const [project, setProject] = useState<ARProject>(() => createDefaultProject());
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [transformMode, setTransformMode] = useState<TransformMode>("translate");
@@ -94,8 +95,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
   const viewerUrl = `${window.location.origin}/viewer/${project.id}`;
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const mobileDemoMessage = isLocalhost
-    ? "手機不能開 localhost。請在電腦執行 npm run tunnel，複製 Cloudflare HTTPS URL 到手機，或部署到 Netlify。"
-    : `手機可開啟：${viewerUrl}`;
+    ? "手機不能開 localhost。請使用 Netlify HTTPS URL，或在電腦執行 npm run tunnel 後用 tunnel 網址。"
+    : `手機掃描頁：${viewerUrl}`;
 
   const saveProjectNow = useCallback(async (nextProject: ARProject) => {
     await projectRepository.saveProject(serializableProject(nextProject));
@@ -142,10 +143,9 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
       })
       .catch((error) => {
         console.error(error);
-        if (mounted) {
-          setActivityStatus(`專案載入失敗：${friendlyError(error)}`);
-          setSaveStatus("載入失敗");
-        }
+        if (!mounted) return;
+        setActivityStatus(`專案載入失敗：${friendlyError(error)}`);
+        setSaveStatus("載入失敗");
       });
     return () => {
       mounted = false;
@@ -216,9 +216,9 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     scene.add(grid);
     scene.add(new THREE.AmbientLight("#ffffff", 1));
 
-    rendererRef.current = renderer;
     sceneRef.current = scene;
     cameraRef.current = camera;
+    rendererRef.current = renderer;
     orbitRef.current = orbit;
     transformRef.current = transform;
 
@@ -262,11 +262,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     if (triggerMeshRef.current) {
       scene.remove(triggerMeshRef.current);
       triggerMeshRef.current.geometry.dispose();
-      if (Array.isArray(triggerMeshRef.current.material)) {
-        triggerMeshRef.current.material.forEach((material) => material.dispose());
-      } else {
-        triggerMeshRef.current.material.dispose();
-      }
+      if (Array.isArray(triggerMeshRef.current.material)) triggerMeshRef.current.material.forEach((material) => material.dispose());
+      else triggerMeshRef.current.material.dispose();
       triggerMeshRef.current = null;
     }
 
@@ -356,61 +353,78 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     return () => cancelAnimationFrame(frame);
   }, [isPlaying, project.duration]);
 
+  const applyMindResult = (result: MindCompileResult, successMessage: string) => {
+    setProject((current) => {
+      const next = { ...current, mindTargetId: result.mindTargetId, mindTargetUrl: result.mindTargetUrl };
+      void saveProjectNow(next).catch((error) => {
+        console.error(error);
+        setSaveStatus("保存失敗");
+        setActivityStatus(`.mind 已產生，但保存失敗：${friendlyError(error)}`);
+      });
+      return next;
+    });
+    setMindProgress(100);
+    setMindStatus("ready");
+    setActivityStatus(successMessage);
+  };
+
+  const compileMindWithBrowserFallback = async (file: File) => {
+    setActivityStatus("後端暫時無法產生 .mind，改由瀏覽器自動產生");
+    const mindFile = await compileMindTargetInBrowser(file, (progress) => {
+      const normalized = progress > 1 ? progress : progress * 100;
+      const percentage = Math.max(0, Math.min(100, Math.round(normalized)));
+      setMindProgress(percentage);
+      setActivityStatus(`瀏覽器正在產生 .mind ${percentage}%`);
+    });
+    const mindAsset = await projectRepository.uploadAsset(project.id, mindFile, "mind");
+    applyMindResult(
+      {
+        mindTargetId: mindAsset.id,
+        mindTargetUrl: mindAsset.url,
+        source: "browser-fallback",
+      },
+      ".mind 已自動產生並保存",
+    );
+  };
+
   const handleTriggerUpload = async (file: File) => {
     try {
       setMindError(null);
-      setActivityStatus("正在上傳 Trigger Image");
-      const asset = await projectRepository.uploadAsset(project.id, file, "trigger");
-      updateProject((current) => ({ ...current, triggerImageId: asset.id, triggerImageUrl: asset.url, thumbnailUrl: asset.url }));
-      setActivityStatus("Trigger Image 已更新");
-
-      setMindStatus("compiling");
       setMindProgress(0);
-      setActivityStatus("正在編譯 .mind");
-      const mindFile = await compileMindTarget(file, (progress) => {
-        const normalized = progress > 1 ? progress : progress * 100;
-        const percentage = Math.max(0, Math.min(100, Math.round(normalized)));
-        setMindProgress(percentage);
-        setActivityStatus(`正在編譯 .mind ${percentage}%`);
-      });
-      const mindAsset = await projectRepository.uploadAsset(project.id, mindFile, "mind");
-      setProject((current) => {
-        const next = { ...current, mindTargetId: mindAsset.id, mindTargetUrl: mindAsset.url };
-        void saveProjectNow(next).catch((error) => {
-          console.error(error);
-          setSaveStatus("保存失敗");
-          setActivityStatus(`.mind 已產生，但保存失敗：${friendlyError(error)}`);
-        });
-        return next;
-      });
-      setMindProgress(100);
-      setMindStatus("ready");
-      setActivityStatus(".mind 已自動產生");
+      setMindStatus("compiling");
+      setActivityStatus("正在上傳 Trigger Image");
+      const triggerAsset = await projectRepository.uploadAsset(project.id, file, "trigger");
+      updateProject((current) => ({
+        ...current,
+        triggerImageId: triggerAsset.id,
+        triggerImageUrl: triggerAsset.url,
+        thumbnailUrl: triggerAsset.url,
+        mindTargetId: undefined,
+        mindTargetUrl: undefined,
+      }));
+
+      try {
+        setActivityStatus("正在請後端產生 .mind");
+        const result = await projectRepository.compileMindTarget(project.id, triggerAsset.id);
+        applyMindResult(result, ".mind 已由後端產生");
+      } catch (backendError) {
+        console.warn("Backend .mind compiler unavailable, falling back to browser compiler", backendError);
+        await compileMindWithBrowserFallback(file);
+      }
     } catch (error) {
       console.error(error);
       setMindStatus("failed");
       setMindError(friendlyError(error));
-      setActivityStatus(".mind 產生失敗，請手動上傳");
+      setActivityStatus(".mind 產生失敗，請換一張較清楚或較小的 Trigger Image 再試一次");
     }
   };
 
   const handleMindUpload = async (file: File) => {
     try {
       setMindError(null);
-      setActivityStatus("正在上傳 .mind Target");
+      setActivityStatus("正在上傳手動 .mind Target");
       const asset = await projectRepository.uploadAsset(project.id, file, "mind");
-      setProject((current) => {
-        const next = { ...current, mindTargetId: asset.id, mindTargetUrl: asset.url };
-        void saveProjectNow(next).catch((error) => {
-          console.error(error);
-          setSaveStatus("保存失敗");
-          setActivityStatus(`.mind 已上傳，但保存失敗：${friendlyError(error)}`);
-        });
-        return next;
-      });
-      setMindProgress(100);
-      setMindStatus("ready");
-      setActivityStatus(".mind Target 已上傳");
+      applyMindResult({ mindTargetId: asset.id, mindTargetUrl: asset.url, source: "browser-fallback" }, ".mind Target 已上傳");
     } catch (error) {
       console.error(error);
       setMindStatus("failed");
@@ -434,19 +448,14 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
         skipped += 1;
         continue;
       }
-
       const asset = await projectRepository.uploadAsset(project.id, file, "layer");
-      createdLayers.push({
-        ...createLayer(type, asset.id, file.name, baseOrder + createdLayers.length),
-        assetUrl: asset.url,
-      });
+      createdLayers.push({ ...createLayer(type, asset.id, file.name, baseOrder + createdLayers.length), assetUrl: asset.url });
     }
 
     if (createdLayers.length > 0) {
       updateProject((current) => ({ ...current, layers: [...current.layers, ...createdLayers] }));
       setSelectedLayerId(createdLayers[0].id);
     }
-
     setActivityStatus(`新增 ${createdLayers.length} 個圖層${skipped ? `，略過 ${skipped} 個不支援檔案` : ""}`);
   };
 
@@ -500,7 +509,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
         <div className="panel-heading">
           <div>
             <span className="eyebrow">WebAR Editor</span>
-            <h1>{project.name}</h1>
+            <input className="project-name-input" aria-label="專案名稱" value={project.name} onChange={(event) => updateProject((current) => ({ ...current, name: event.target.value }))} />
           </div>
           <span className="status-dot">{saveStatus}</span>
         </div>
@@ -519,7 +528,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
           </label>
           <label className="upload-tile">
             <Box size={18} />
-            <span>.mind Target</span>
+            <span>手動 .mind</span>
             <input type="file" accept=".mind" onChange={(event) => event.target.files?.[0] && handleMindUpload(event.target.files[0])} />
           </label>
           <label className="upload-tile wide">
@@ -635,7 +644,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
               {copiedDemo ? "已複製" : "手機 Demo"}
             </button>
             <a href={viewerUrl} target="_blank" rel="noreferrer" onClick={() => updateProject((current) => ({ ...current, status: "published" }))}>
-              Publish
+              前往掃描 Viewer
             </a>
           </div>
         </header>

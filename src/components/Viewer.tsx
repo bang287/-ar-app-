@@ -14,17 +14,17 @@ type MindARThreeInstance = {
   stop: () => void;
 };
 
-type MindARGlobal = {
+type MindARModule = {
   IMAGE: {
     MindARThree: new (options: { container: HTMLElement; imageTargetSrc: string }) => MindARThreeInstance;
   };
 };
 
-type ViewerMode = "idle" | "starting" | "tracking" | "lost" | "preview" | "error";
+type ViewerMode = "idle" | "starting" | "tracking" | "lost" | "waiting-mind" | "preview" | "error";
 
-const loadMindARScript = () =>
-  new Promise<MindARGlobal>((resolve, reject) => {
-    const existing = (window as Window & { MINDAR?: MindARGlobal }).MINDAR;
+const loadMindARModule = () =>
+  new Promise<MindARModule>((resolve, reject) => {
+    const existing = (window as Window & { MINDAR?: MindARModule }).MINDAR;
     if (existing?.IMAGE?.MindARThree) {
       resolve(existing);
       return;
@@ -33,11 +33,11 @@ const loadMindARScript = () =>
     const existingScript = document.querySelector<HTMLScriptElement>(`script[data-mindar-runtime="true"]`);
     if (existingScript) {
       existingScript.addEventListener("load", () => {
-        const mindar = (window as Window & { MINDAR?: MindARGlobal }).MINDAR;
+        const mindar = (window as Window & { MINDAR?: MindARModule }).MINDAR;
         if (mindar?.IMAGE?.MindARThree) resolve(mindar);
-        else reject(new Error("MindAR script loaded without exposing window.MINDAR"));
+        else reject(new Error("MindAR runtime loaded without MindARThree"));
       });
-      existingScript.addEventListener("error", () => reject(new Error("Unable to load MindAR browser script")));
+      existingScript.addEventListener("error", () => reject(new Error("Unable to load MindAR runtime")));
       return;
     }
 
@@ -46,11 +46,11 @@ const loadMindARScript = () =>
     script.async = true;
     script.dataset.mindarRuntime = "true";
     script.onload = () => {
-      const mindar = (window as Window & { MINDAR?: MindARGlobal }).MINDAR;
+      const mindar = (window as Window & { MINDAR?: MindARModule }).MINDAR;
       if (mindar?.IMAGE?.MindARThree) resolve(mindar);
-      else reject(new Error("MindAR script loaded without exposing window.MINDAR"));
+      else reject(new Error("MindAR runtime loaded without MindARThree"));
     };
-    script.onerror = () => reject(new Error("Unable to load MindAR browser script"));
+    script.onerror = () => reject(new Error("Unable to load MindAR runtime"));
     document.head.appendChild(script);
   });
 
@@ -70,7 +70,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
   const [mode, setMode] = useState<ViewerMode>("idle");
   const [fallbackMode, setFallbackMode] = useState(false);
 
-  const hasMindTarget = Boolean(project?.mindTargetId || project?.mindTargetUrl);
+  const hasMindTarget = Boolean(project?.mindTargetUrl);
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
   useEffect(() => {
@@ -88,14 +88,19 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
         );
         if (!mounted) return;
         setProject({ ...stored, triggerImageUrl, mindTargetUrl, layers });
-        setStatus(mindTargetUrl || stored.mindTargetId ? "準備掃描 Trigger Image" : "未附加 .mind，使用 3D 預覽模式");
+        if (mindTargetUrl) {
+          setStatus("準備掃描 Trigger Image");
+          setMode("idle");
+        } else {
+          setStatus("尚未產生 .mind，請回 Editor 上傳 Trigger Image 並等到 .mind ready");
+          setMode("waiting-mind");
+        }
       })
       .catch((error) => {
         console.error(error);
-        if (mounted) {
-          setMode("error");
-          setStatus(error instanceof Error ? error.message : "專案載入失敗");
-        }
+        if (!mounted) return;
+        setMode("error");
+        setStatus(error instanceof Error ? error.message : "專案載入失敗");
       });
     return () => {
       mounted = false;
@@ -109,14 +114,18 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     };
   }, []);
 
-  const bootPreviewScene = async () => {
-    if (!project || !containerRef.current) return;
+  const clearStage = () => {
     cleanupRef.current?.();
     cleanupRef.current = null;
-    containerRef.current.querySelectorAll("canvas").forEach((canvas) => canvas.remove());
+    containerRef.current?.querySelectorAll("canvas").forEach((canvas) => canvas.remove());
+  };
+
+  const bootPreviewScene = async () => {
+    if (!project || !containerRef.current) return;
+    clearStage();
     setFallbackMode(true);
     setMode("preview");
-    setStatus("未附加 .mind，使用 3D 預覽模式");
+    setStatus("3D 預覽模式，這不是相機掃描");
 
     let stopped = false;
     const scene = new THREE.Scene();
@@ -130,8 +139,8 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
 
     const group = new THREE.Group();
     scene.add(group);
-    const trigger = project.triggerImageUrl ? await new THREE.TextureLoader().loadAsync(project.triggerImageUrl) : undefined;
-    if (trigger) {
+    if (project.triggerImageUrl) {
+      const trigger = await new THREE.TextureLoader().loadAsync(project.triggerImageUrl);
       trigger.colorSpace = THREE.SRGBColorSpace;
       group.add(new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: trigger, transparent: true, opacity: 0.35 })));
     }
@@ -160,12 +169,11 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
 
   const bootMindAR = async () => {
     if (!project || !containerRef.current) return;
-    cleanupRef.current?.();
-    cleanupRef.current = null;
-    containerRef.current.querySelectorAll("canvas").forEach((canvas) => canvas.remove());
+    clearStage();
 
     if (!project.mindTargetUrl) {
-      await bootPreviewScene();
+      setMode("waiting-mind");
+      setStatus("尚未產生 .mind，不能啟動相機掃描");
       return;
     }
 
@@ -173,7 +181,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       setFallbackMode(false);
       setMode("starting");
       setStatus("啟動相機與圖片辨識");
-      const mindar = await loadMindARScript();
+      const mindar = await loadMindARModule();
       const mindarThree = new mindar.IMAGE.MindARThree({
         container: containerRef.current,
         imageTargetSrc: project.mindTargetUrl,
@@ -196,8 +204,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       };
 
       meshes.forEach((mesh) => {
-        if (!mesh) return;
-        anchor.group.add(mesh);
+        if (mesh) anchor.group.add(mesh);
       });
 
       await mindarThree.start();
@@ -210,19 +217,18 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     } catch (error) {
       console.error(error);
       setMode("error");
-      setStatus(error instanceof Error ? error.message : "相機啟動失敗，已改用 3D 預覽");
-      await bootPreviewScene();
+      setStatus(error instanceof Error ? error.message : "相機啟動失敗");
     }
   };
 
   const startDemo = async () => {
     if (startedRef.current) return;
     startedRef.current = true;
-    if (hasMindTarget) await bootMindAR();
-    else await bootPreviewScene();
+    await bootMindAR();
   };
 
-  const canStart = project && mode === "idle";
+  const canStartAR = project && mode === "idle" && hasMindTarget;
+  const canPreview = project && mode === "waiting-mind";
   const modeIcon = mode === "tracking" || mode === "preview" ? <Play size={18} /> : <Camera size={18} />;
 
   return (
@@ -239,20 +245,30 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
           {modeIcon}
         </div>
 
-        {canStart && (
+        {canStartAR && (
           <div className="viewer-start-panel">
             <button onClick={startDemo}>
               <Camera size={22} />
               Start AR
             </button>
-            <p>{hasMindTarget ? "點擊後會啟動相機，請允許瀏覽器使用鏡頭，再掃描 Trigger Image。" : "這個專案還沒有 .mind，會先用 3D 預覽模式展示圖層效果。"}</p>
+            <p>點擊後會啟動相機。請允許瀏覽器使用鏡頭，再掃描 Trigger Image。</p>
+          </div>
+        )}
+
+        {canPreview && (
+          <div className="viewer-start-panel">
+            <button onClick={bootPreviewScene}>
+              <Play size={22} />
+              3D Preview
+            </button>
+            <p>此作品還沒有 .mind。請回 Editor 上傳 Trigger Image，等到 .mind ready 後再用手機掃描。</p>
           </div>
         )}
 
         {isLocalhost && (
           <div className="viewer-warning">
             <AlertTriangle size={16} />
-            <span>手機不能使用 localhost。請改用 Cloudflare tunnel HTTPS 或 Netlify 網址。</span>
+            <span>手機不能使用 localhost。請改用 Netlify HTTPS 網址。</span>
           </div>
         )}
 
