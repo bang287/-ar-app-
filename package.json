@@ -1,0 +1,36 @@
+{
+  "name": "webar-layer-editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"npm run api\" \"npm run web\"",
+    "web": "vite --host 0.0.0.0",
+    "api": "tsx server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "tunnel": "cloudflared tunnel --url http://localhost:5173"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.3",
+    "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^9.2.1",
+    "express": "^5.2.1",
+    "lucide-react": "^0.468.0",
+    "multer": "^2.1.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "three": "^0.180.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@types/three": "^0.180.0",
+    "tsx": "^4.21.0"
+  }
+}

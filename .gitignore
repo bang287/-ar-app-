@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+local-projects/project_*/
+local-projects/folders.json
