@@ -69,7 +69,7 @@ export type UploadedAsset = {
 export type MindCompileResult = {
   mindTargetId: string;
   mindTargetUrl: string;
-  source: "supabase-function" | "browser-fallback" | "local-api";
+  source: "netlify-function" | "supabase-function" | "browser-fallback" | "local-api";
 };
 
 export type StoredAsset = {

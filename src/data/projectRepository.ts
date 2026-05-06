@@ -212,6 +212,13 @@ export const projectRepository = {
   },
 
   async compileMindTarget(projectId: string, triggerImagePath: string): Promise<MindCompileResult> {
+    const netlifyResponse = await fetch("/api/compile-mind-target", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, triggerImagePath }),
+    }).catch(() => null);
+    if (netlifyResponse?.ok) return (await netlifyResponse.json()) as MindCompileResult;
+
     if (shouldUseSupabase()) return supabaseProjectRepository.compileMindTarget(projectId, triggerImagePath);
     if (await this.apiAvailable()) {
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/compile-mind`, {

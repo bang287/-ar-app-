@@ -9,6 +9,8 @@ type MindARCompilerGlobal = {
 
 const compilerScriptUrls = [
   "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/dist/mindar-image.prod.js",
+  "https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image.prod.js",
+  "https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js",
   "https://cdn.jsdelivr.net/npm/mind-ar@1.1.3/dist/mindar-image.prod.js",
   "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@0.4.2/dist/mindar.prod-min.js",
 ];
