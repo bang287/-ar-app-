@@ -21,9 +21,11 @@ import {
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
+import { buildInfo } from "../buildInfo";
 import type { ARLayer, ARProject, MindCompileResult } from "../types/project";
 import { compileMindTarget as compileMindTargetInBrowser } from "../ar/mindCompiler";
 import { createDefaultProject, createLayer } from "../data/defaultProject";
+import { hydrateRuntimeProject } from "../data/hydrateRuntimeProject";
 import { projectRepository } from "../data/projectRepository";
 import { applyLayerTransform, createLayerMesh, type LayerMesh } from "../three/layerMesh";
 import { updateChromaKeyMaterial } from "../three/chromaKeyMaterial";
@@ -78,6 +80,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
   const saveTimerRef = useRef<number | null>(null);
 
   const [project, setProject] = useState<ARProject>(() => createDefaultProject());
+  const projectRef = useRef(project);
+  const loadedRef = useRef(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [transformMode, setTransformMode] = useState<TransformMode>("translate");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -98,7 +102,15 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     ? "手機不能開 localhost。請使用 Netlify HTTPS URL，或在電腦執行 npm run tunnel 後用 tunnel 網址。"
     : `手機掃描頁：${viewerUrl}`;
 
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project, projectId]);
+
   const saveProjectNow = useCallback(async (nextProject: ARProject) => {
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
     await projectRepository.saveProject(serializableProject(nextProject));
     setSaveStatus("已自動保存");
   }, []);
@@ -123,21 +135,16 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
 
   useEffect(() => {
     let mounted = true;
+    loadedRef.current = false;
     projectRepository
       .getProject(projectId)
       .then(async (stored) => {
-        const triggerImageUrl = stored.triggerImageUrl ?? (await projectRepository.createObjectUrl(stored.triggerImageId));
-        const mindTargetUrl = stored.mindTargetUrl ?? (await projectRepository.createObjectUrl(stored.mindTargetId));
-        const layers = await Promise.all(
-          stored.layers.map(async (layer) => ({
-            ...layer,
-            assetUrl: layer.assetUrl ?? (await projectRepository.createObjectUrl(layer.assetId)),
-          })),
-        );
+        const runtimeProject = await hydrateRuntimeProject(stored);
         if (!mounted) return;
-        setProject({ ...stored, triggerImageUrl, mindTargetUrl, layers });
-        setSelectedLayerId(layers[0]?.id ?? null);
-        setMindStatus(stored.mindTargetId || mindTargetUrl ? "ready" : "missing");
+        loadedRef.current = true;
+        setProject(runtimeProject);
+        setSelectedLayerId(runtimeProject.layers[0]?.id ?? null);
+        setMindStatus(runtimeProject.mindTargetId || runtimeProject.mindTargetUrl ? "ready" : "missing");
         setActivityStatus("專案已載入");
         setSaveStatus("已自動保存");
       })
@@ -153,6 +160,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
   }, [projectId]);
 
   useEffect(() => {
+    if (!loadedRef.current || project.id !== projectId) return;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     setSaveStatus("保存中");
     saveTimerRef.current = window.setTimeout(() => {
@@ -168,7 +176,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     };
-  }, [project]);
+  }, [project, projectId]);
 
   useEffect(() => {
     if (mindStatus !== "compiling") {
@@ -353,19 +361,29 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     return () => cancelAnimationFrame(frame);
   }, [isPlaying, project.duration]);
 
-  const applyMindResult = (result: MindCompileResult, successMessage: string) => {
-    setProject((current) => {
-      const next = { ...current, mindTargetId: result.mindTargetId, mindTargetUrl: result.mindTargetUrl };
-      void saveProjectNow(next).catch((error) => {
-        console.error(error);
-        setSaveStatus("保存失敗");
-        setActivityStatus(`.mind 已產生，但保存失敗：${friendlyError(error)}`);
-      });
-      return next;
-    });
+  const attachMindTarget = async (result: MindCompileResult, successMessage: string) => {
     setMindProgress(100);
     setMindStatus("ready");
-    setActivityStatus(successMessage);
+    setMindError(null);
+    setActivityStatus("正在保存 .mind 到專案");
+
+    const current = projectRef.current;
+    const next = {
+      ...current,
+      mindTargetId: result.mindTargetId,
+      mindTargetUrl: result.mindTargetUrl,
+    };
+    setProject(next);
+    await saveProjectNow(next);
+
+    const confirmed = await hydrateRuntimeProject(await projectRepository.getProject(next.id));
+    if (!confirmed.mindTargetId) {
+      throw new Error(".mind 已上傳，但重新讀取專案時沒有 mindTargetId");
+    }
+    setProject(confirmed);
+    setMindProgress(100);
+    setMindStatus("ready");
+    setActivityStatus(`${successMessage}，已保存並重新讀取確認`);
   };
 
   const compileMindWithBrowserFallback = async (file: File) => {
@@ -376,8 +394,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
       setMindProgress(percentage);
       setActivityStatus(`瀏覽器正在產生 .mind ${percentage}%`);
     });
-    const mindAsset = await projectRepository.uploadAsset(project.id, mindFile, "mind");
-    applyMindResult(
+    const mindAsset = await projectRepository.uploadAsset(projectRef.current.id, mindFile, "mind");
+    await attachMindTarget(
       {
         mindTargetId: mindAsset.id,
         mindTargetUrl: mindAsset.url,
@@ -393,20 +411,22 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
       setMindProgress(0);
       setMindStatus("compiling");
       setActivityStatus("正在上傳 Trigger Image");
-      const triggerAsset = await projectRepository.uploadAsset(project.id, file, "trigger");
-      updateProject((current) => ({
-        ...current,
+      const triggerAsset = await projectRepository.uploadAsset(projectRef.current.id, file, "trigger");
+      const nextTriggerProject = {
+        ...projectRef.current,
         triggerImageId: triggerAsset.id,
         triggerImageUrl: triggerAsset.url,
         thumbnailUrl: triggerAsset.url,
         mindTargetId: undefined,
         mindTargetUrl: undefined,
-      }));
+      };
+      setProject(nextTriggerProject);
+      await saveProjectNow(nextTriggerProject);
 
       try {
         setActivityStatus("正在請後端產生 .mind");
-        const result = await projectRepository.compileMindTarget(project.id, triggerAsset.id);
-        applyMindResult(result, ".mind 已由後端產生");
+        const result = await projectRepository.compileMindTarget(nextTriggerProject.id, triggerAsset.id);
+        await attachMindTarget(result, ".mind 已由後端產生");
       } catch (backendError) {
         console.warn("Backend .mind compiler unavailable, falling back to browser compiler", backendError);
         await compileMindWithBrowserFallback(file);
@@ -423,8 +443,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     try {
       setMindError(null);
       setActivityStatus("正在上傳手動 .mind Target");
-      const asset = await projectRepository.uploadAsset(project.id, file, "mind");
-      applyMindResult({ mindTargetId: asset.id, mindTargetUrl: asset.url, source: "browser-fallback" }, ".mind Target 已上傳");
+      const asset = await projectRepository.uploadAsset(projectRef.current.id, file, "mind");
+      await attachMindTarget({ mindTargetId: asset.id, mindTargetUrl: asset.url, source: "browser-fallback" }, ".mind Target 已上傳");
     } catch (error) {
       console.error(error);
       setMindStatus("failed");
@@ -637,6 +657,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
             </button>
           </div>
           <div className="publish-group">
+            <span className="build-pill">build {buildInfo.version}</span>
             <span className={`mind-pill ${mindStatus}`}>{mindLabel(mindStatus, mindProgress)}</span>
             <button onClick={copyViewerUrl}>{copied ? <Check size={17} /> : <Copy size={17} />} Viewer URL</button>
             <button className="demo-url-button" onClick={copyDemoInstruction}>

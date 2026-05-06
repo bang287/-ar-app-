@@ -418,6 +418,12 @@ h1 {
   background: #fee2e2;
 }
 
+.publish-group .build-pill {
+  color: #475569;
+  background: #eef2f7;
+  font-weight: 700;
+}
+
 .publish-group button,
 .publish-group a {
   gap: 7px;
@@ -603,6 +609,21 @@ h1 {
   font-weight: 800;
 }
 
+.viewer-start-panel button.secondary,
+.viewer-panel-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 0 16px;
+  color: #e5edf8;
+  background: rgba(255, 255, 255, 0.12);
+  text-decoration: none;
+  font-weight: 800;
+}
+
 .viewer-start-panel p {
   margin: 0;
   color: #cbd5e1;
@@ -629,6 +650,90 @@ h1 {
   background: rgba(120, 53, 15, 0.82);
   font-size: 13px;
   text-align: center;
+}
+
+.viewer-debug-panel {
+  position: absolute;
+  z-index: 8;
+  left: 16px;
+  right: 16px;
+  bottom: 64px;
+  display: grid;
+  gap: 8px;
+  max-width: 720px;
+  margin: 0 auto;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  padding: 12px;
+  color: #dbe6f3;
+  background: rgba(5, 9, 15, 0.82);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+  font-size: 12px;
+}
+
+.viewer-debug-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.viewer-debug-heading button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.viewer-debug-panel dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.viewer-debug-panel dl div {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.viewer-debug-panel dt {
+  color: #94a3b8;
+}
+
+.viewer-debug-panel dd {
+  margin: 0;
+  overflow: hidden;
+  color: #f8fafc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-debug-panel dd.ok {
+  color: #86efac;
+}
+
+.viewer-debug-panel dd.error,
+.viewer-debug-panel dd.missing {
+  color: #fca5a5;
+}
+
+.viewer-debug-panel dd.checking,
+.viewer-debug-panel dd.unchecked {
+  color: #fde68a;
+}
+
+.viewer-debug-panel a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: #93c5fd;
+  text-decoration: none;
 }
 
 @media (max-width: 900px) {
