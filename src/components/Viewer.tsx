@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Camera, Layers, Play, Smartphone } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeft, Camera, ExternalLink, Layers, Play, RefreshCw, Smartphone } from "lucide-react";
 import * as THREE from "three";
+import { buildInfo } from "../buildInfo";
 import type { ARProject } from "../types/project";
 import { projectRepository } from "../data/projectRepository";
+import { hydrateRuntimeProject } from "../data/hydrateRuntimeProject";
 import { createLayerMesh, type LayerMesh } from "../three/layerMesh";
 
 type MindARThreeInstance = {
@@ -20,7 +22,11 @@ type MindARModule = {
   };
 };
 
-type ViewerMode = "idle" | "starting" | "tracking" | "lost" | "waiting-mind" | "preview" | "error";
+type ViewerMode = "idle" | "starting" | "tracking" | "lost" | "waiting-mind" | "preview" | "error" | "loading";
+type MindUrlCheck = {
+  status: "unchecked" | "checking" | "ok" | "missing" | "error";
+  detail: string;
+};
 
 const loadMindARModule = () =>
   new Promise<MindARModule>((resolve, reject) => {
@@ -61,51 +67,96 @@ const disposeMesh = (mesh: LayerMesh | null) => {
   mesh.material.dispose();
 };
 
+const shortValue = (value?: string) => {
+  if (!value) return "no";
+  if (value.length <= 42) return value;
+  return `${value.slice(0, 20)}...${value.slice(-14)}`;
+};
+
+const formatBuildTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-Hant", { hour12: false });
+};
+
 export const Viewer = ({ projectId }: { projectId: string }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const startedRef = useRef(false);
   const [project, setProject] = useState<ARProject | null>(null);
   const [status, setStatus] = useState("載入 AR 專案");
-  const [mode, setMode] = useState<ViewerMode>("idle");
+  const [mode, setMode] = useState<ViewerMode>("loading");
   const [fallbackMode, setFallbackMode] = useState(false);
+  const [mindUrlCheck, setMindUrlCheck] = useState<MindUrlCheck>({ status: "unchecked", detail: "not checked" });
+  const [loadedAt, setLoadedAt] = useState<string>("");
 
   const hasMindTarget = Boolean(project?.mindTargetUrl);
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
+  const clearStage = useCallback(() => {
+    cleanupRef.current?.();
+    cleanupRef.current = null;
+    containerRef.current?.querySelectorAll("canvas").forEach((canvas) => canvas.remove());
+  }, []);
+
+  const checkMindUrl = useCallback(async (url?: string) => {
+    if (!url) {
+      setMindUrlCheck({ status: "missing", detail: "no mindTargetUrl" });
+      return;
+    }
+
+    setMindUrlCheck({ status: "checking", detail: "checking .mind URL" });
+    try {
+      let response = await fetch(url, { method: "HEAD", cache: "no-store" });
+      if (response.status === 405) {
+        response = await fetch(url, { method: "GET", cache: "no-store", headers: { Range: "bytes=0-16" } });
+      }
+      const size = response.headers.get("content-length");
+      const type = response.headers.get("content-type");
+      if (response.ok) {
+        setMindUrlCheck({ status: "ok", detail: `${response.status} OK${size ? `, ${size} bytes` : ""}${type ? `, ${type}` : ""}` });
+      } else {
+        setMindUrlCheck({ status: "error", detail: `${response.status} ${response.statusText}` });
+      }
+    } catch (error) {
+      setMindUrlCheck({ status: "error", detail: error instanceof Error ? error.message : "CORS or network error" });
+    }
+  }, []);
+
+  const loadProject = useCallback(async () => {
+    clearStage();
+    setFallbackMode(false);
+    setMode("loading");
+    setStatus("正在從 Supabase 重新讀取專案");
+    setMindUrlCheck({ status: "unchecked", detail: "not checked" });
+    startedRef.current = false;
+
+    try {
+      const stored = await projectRepository.getProject(projectId);
+      const hydrated = await hydrateRuntimeProject(stored);
+      setProject(hydrated);
+      setLoadedAt(new Date().toLocaleString("zh-Hant", { hour12: false }));
+      await checkMindUrl(hydrated.mindTargetUrl);
+
+      if (hydrated.mindTargetUrl) {
+        setStatus(".mind ready，點 Start AR 開啟相機");
+        setMode("idle");
+      } else {
+        setStatus("尚未讀到 .mind，請回 Editor 重新保存或上傳 .mind");
+        setMode("waiting-mind");
+      }
+    } catch (error) {
+      console.error(error);
+      setProject(null);
+      setMode("error");
+      setStatus(error instanceof Error ? error.message : "專案載入失敗");
+      setMindUrlCheck({ status: "error", detail: error instanceof Error ? error.message : "load project failed" });
+    }
+  }, [checkMindUrl, clearStage, projectId]);
+
   useEffect(() => {
-    let mounted = true;
-    projectRepository
-      .getProject(projectId)
-      .then(async (stored) => {
-        const triggerImageUrl = stored.triggerImageUrl ?? (await projectRepository.createObjectUrl(stored.triggerImageId));
-        const mindTargetUrl = stored.mindTargetUrl ?? (await projectRepository.createObjectUrl(stored.mindTargetId));
-        const layers = await Promise.all(
-          stored.layers.map(async (layer) => ({
-            ...layer,
-            assetUrl: layer.assetUrl ?? (await projectRepository.createObjectUrl(layer.assetId)),
-          })),
-        );
-        if (!mounted) return;
-        setProject({ ...stored, triggerImageUrl, mindTargetUrl, layers });
-        if (mindTargetUrl) {
-          setStatus("準備掃描 Trigger Image");
-          setMode("idle");
-        } else {
-          setStatus("尚未產生 .mind，請回 Editor 上傳 Trigger Image 並等到 .mind ready");
-          setMode("waiting-mind");
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-        if (!mounted) return;
-        setMode("error");
-        setStatus(error instanceof Error ? error.message : "專案載入失敗");
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [projectId]);
+    void loadProject();
+  }, [loadProject]);
 
   useEffect(() => {
     return () => {
@@ -113,12 +164,6 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       cleanupRef.current = null;
     };
   }, []);
-
-  const clearStage = () => {
-    cleanupRef.current?.();
-    cleanupRef.current = null;
-    containerRef.current?.querySelectorAll("canvas").forEach((canvas) => canvas.remove());
-  };
 
   const bootPreviewScene = async () => {
     if (!project || !containerRef.current) return;
@@ -173,7 +218,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
 
     if (!project.mindTargetUrl) {
       setMode("waiting-mind");
-      setStatus("尚未產生 .mind，不能啟動相機掃描");
+      setStatus("尚未讀到 .mind，不能啟動相機掃描");
       return;
     }
 
@@ -224,12 +269,29 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
   const startDemo = async () => {
     if (startedRef.current) return;
     startedRef.current = true;
-    await bootMindAR();
+    try {
+      await bootMindAR();
+    } finally {
+      startedRef.current = false;
+    }
   };
 
   const canStartAR = project && mode === "idle" && hasMindTarget;
   const canPreview = project && mode === "waiting-mind";
   const modeIcon = mode === "tracking" || mode === "preview" ? <Play size={18} /> : <Camera size={18} />;
+  const debugRows = useMemo(
+    () => [
+      ["origin", window.location.origin],
+      ["projectId", projectId],
+      ["build", `${buildInfo.version} / ${formatBuildTime(buildInfo.builtAt)}`],
+      ["loaded", loadedAt || "not loaded"],
+      ["triggerImageId", shortValue(project?.triggerImageId)],
+      ["mindTargetId", shortValue(project?.mindTargetId)],
+      ["mindTargetUrl", project?.mindTargetUrl ? shortValue(project.mindTargetUrl) : "no"],
+      [".mind URL", mindUrlCheck.detail],
+    ],
+    [loadedAt, mindUrlCheck.detail, project?.mindTargetId, project?.mindTargetUrl, project?.triggerImageId, projectId],
+  );
 
   return (
     <main className="viewer-shell">
@@ -257,11 +319,14 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
 
         {canPreview && (
           <div className="viewer-start-panel">
-            <button onClick={bootPreviewScene}>
-              <Play size={22} />
-              3D Preview
+            <button onClick={loadProject}>
+              <RefreshCw size={22} />
+              Reload from Supabase
             </button>
-            <p>此作品還沒有 .mind。請回 Editor 上傳 Trigger Image，等到 .mind ready 後再用手機掃描。</p>
+            <a className="viewer-panel-link" href={`/editor/${projectId}`}>
+              回 Editor 檢查 .mind
+            </a>
+            <p>這個 Viewer 目前沒有讀到 .mind。請先回 Editor 重新保存或手動上傳 .mind，再回來重讀。</p>
           </div>
         )}
 
@@ -272,6 +337,29 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
           </div>
         )}
 
+        <div className="viewer-debug-panel">
+          <div className="viewer-debug-heading">
+            <strong>Viewer Debug</strong>
+            <button onClick={loadProject} title="Reload from Supabase">
+              <RefreshCw size={14} />
+            </button>
+          </div>
+          <dl>
+            {debugRows.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd className={label === ".mind URL" ? mindUrlCheck.status : undefined}>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {project?.mindTargetUrl && (
+            <a href={project.mindTargetUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={13} />
+              open .mind URL
+            </a>
+          )}
+        </div>
+
         <div className="viewer-bottom">
           <span>
             <Smartphone size={16} /> iOS / Android
@@ -279,6 +367,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
           <span>
             <Layers size={16} /> {project?.layers.length ?? 0} layers
           </span>
+          <span>build {buildInfo.version}</span>
           {fallbackMode && <span>Preview mode</span>}
         </div>
       </div>
