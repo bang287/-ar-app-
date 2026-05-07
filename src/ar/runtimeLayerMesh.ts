@@ -10,6 +10,11 @@ export type RuntimeLayerMesh = InstanceType<RuntimeThree["Mesh"]> & {
   material: InstanceType<RuntimeThree["ShaderMaterial"]>;
 };
 
+export type RuntimeLayerTransformOptions = {
+  depthBoost?: number;
+  minimumDepth?: number;
+};
+
 const dimensionsFromAspect = (width?: number, height?: number) => {
   const safeWidth = width && width > 0 ? width : 1;
   const safeHeight = height && height > 0 ? height : 1;
@@ -97,15 +102,18 @@ const createVideoTexture = (THREE: RuntimeThree, url: string) => {
   return { texture, video };
 };
 
-export const applyRuntimeLayerTransform = (mesh: RuntimeLayerMesh, layer: ARLayer) => {
-  mesh.position.set(layer.position.x, layer.position.y, layer.position.z);
+export const applyRuntimeLayerTransform = (mesh: RuntimeLayerMesh, layer: ARLayer, options: RuntimeLayerTransformOptions = {}) => {
+  const boostedDepth = layer.position.z * (options.depthBoost ?? 1);
+  const minimumDepth = options.minimumDepth ?? 0;
+  const z = Math.abs(boostedDepth) >= minimumDepth ? boostedDepth : minimumDepth;
+  mesh.position.set(layer.position.x, layer.position.y, z);
   mesh.rotation.set(layer.rotation.x, layer.rotation.y, layer.rotation.z);
   mesh.scale.set(layer.scale.x, layer.scale.y, layer.scale.z);
   mesh.visible = layer.visible;
   mesh.renderOrder = layer.order;
 };
 
-export const createRuntimeLayerMesh = async (THREE: RuntimeThree, layer: ARLayer): Promise<RuntimeLayerMesh> => {
+export const createRuntimeLayerMesh = async (THREE: RuntimeThree, layer: ARLayer, options: RuntimeLayerTransformOptions = {}): Promise<RuntimeLayerMesh> => {
   if (!layer.assetUrl) throw new Error(`Layer ${layer.id} has no asset URL`);
 
   let video: HTMLVideoElement | undefined;
@@ -119,17 +127,21 @@ export const createRuntimeLayerMesh = async (THREE: RuntimeThree, layer: ARLayer
           dimensions = dimensionsFromAspect(video.videoWidth, video.videoHeight);
           return result.texture;
         })()
-      : await new THREE.TextureLoader().loadAsync(layer.assetUrl).then((loadedTexture) => {
-          const image = loadedTexture.image as HTMLImageElement | ImageBitmap | undefined;
-          dimensions = dimensionsFromAspect(image?.width, image?.height);
-          return loadedTexture;
-        });
+      : await (async () => {
+          const loader = new THREE.TextureLoader();
+          loader.setCrossOrigin("anonymous");
+          return loader.loadAsync(layer.assetUrl!).then((loadedTexture) => {
+            const image = loadedTexture.image as HTMLImageElement | ImageBitmap | undefined;
+            dimensions = dimensionsFromAspect(image?.width, image?.height);
+            return loadedTexture;
+          });
+        })();
 
   const geometry = new THREE.PlaneGeometry(dimensions.width, dimensions.height);
   const material = createChromaKeyMaterial(THREE, texture, layer.chromaKey, layer.opacity);
   const mesh = new THREE.Mesh(geometry, material) as RuntimeLayerMesh;
   mesh.userData.layerId = layer.id;
   mesh.userData.video = video;
-  applyRuntimeLayerTransform(mesh, layer);
+  applyRuntimeLayerTransform(mesh, layer, options);
   return mesh;
 };

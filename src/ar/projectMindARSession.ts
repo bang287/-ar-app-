@@ -14,6 +14,7 @@ export type ProjectARDiagnostics = {
   layersLoaded?: string;
   imageTargetSrcMode?: string;
   targetFoundCount?: string;
+  depthMode?: string;
 };
 
 export type ProjectARSession = {
@@ -29,6 +30,9 @@ type ProjectARSessionOptions = {
   onTargetFound?: () => void;
   onTargetLost?: () => void;
 };
+
+const VIEWER_DEPTH_BOOST = 2.8;
+const VIEWER_MINIMUM_DEPTH_STEP = 0.11;
 
 const disposeLayerMesh = (mesh: RuntimeLayerMesh) => {
   mesh.userData.video?.pause();
@@ -83,7 +87,13 @@ export const startProjectMindARSession = async ({
   try {
     onDiagnostics?.({ mindCompilerVersion: project.mindCompilerVersion ?? "missing" });
     onStatus?.("準備使用 .mind URL");
-    onDiagnostics?.({ mindTarget: "direct-url", imageTargetSrcMode: "direct-url", targetFoundCount: "0", layersLoaded: "0" });
+    onDiagnostics?.({
+      mindTarget: "direct-url",
+      imageTargetSrcMode: "direct-url",
+      targetFoundCount: "0",
+      layersLoaded: "0",
+      depthMode: `${VIEWER_DEPTH_BOOST}x depth, min ${VIEWER_MINIMUM_DEPTH_STEP}`,
+    });
 
     onStatus?.("檢查手機相機權限");
     onDiagnostics?.({ camera: "requesting native getUserMedia", mindarStart: "not started" });
@@ -92,12 +102,12 @@ export const startProjectMindARSession = async ({
     onDiagnostics?.({ camera: `granted: ${track?.label || "camera stream"}` });
     stopMediaStream(stream);
 
-    onStatus?.("載入 MindAR 官方 Three.js runtime");
+    onStatus?.("載入 MindAR Three.js runtime");
     onDiagnostics?.({ runtime: "loading" });
     const runtime = await loadMindARThree();
     onDiagnostics?.({ runtime: `loaded: ${runtime.source}` });
 
-    onStatus?.("建立 MindAR 圖片追蹤場景");
+    onStatus?.("建立 MindAR 影像追蹤場景");
     mindarThree = new runtime.MindARThree({
       container,
       imageTargetSrc: project.mindTargetUrl,
@@ -112,11 +122,14 @@ export const startProjectMindARSession = async ({
     const orderedLayers = [...project.layers].sort((left, right) => left.order - right.order);
     const ensureLayersLoaded = async () => {
       if (!layersPromise) {
-        onStatus?.(`已辨識 Trigger Image，載入 ${project.layers.length} 個專案圖層`);
+        onStatus?.(`已辨識 Trigger Image，載入 ${project.layers.length} 個 AR 圖層`);
         onDiagnostics?.({ layers: "loading", layersLoaded: `0/${project.layers.length}` });
         layersPromise = Promise.all(
-          orderedLayers.map((layer) =>
-            createRuntimeLayerMesh(runtime.THREE, layer).catch((error) => {
+          orderedLayers.map((layer, index) =>
+            createRuntimeLayerMesh(runtime.THREE, layer, {
+              depthBoost: VIEWER_DEPTH_BOOST,
+              minimumDepth: (index + 1) * VIEWER_MINIMUM_DEPTH_STEP,
+            }).catch((error) => {
               console.warn(`Unable to load AR layer ${layer.id}`, error);
               return null;
             }),

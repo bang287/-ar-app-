@@ -834,6 +834,29 @@ h1 {
   box-shadow: 0 0 0 5px rgba(239, 42, 31, 0.18);
 }
 
+.recording-badge.ready span {
+  background: #22c55e;
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
+}
+
+.recording-badge.error span {
+  background: #f59e0b;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.18);
+}
+
+.recording-error {
+  max-width: min(320px, calc(100vw - 48px));
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #fee2e2;
+  background: rgba(127, 29, 29, 0.78);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .record-button {
   display: grid;
   place-items: center;
@@ -845,6 +868,11 @@ h1 {
     0 12px 36px rgba(0, 0, 0, 0.34),
     inset 0 0 0 2px rgba(255, 255, 255, 0.92);
   pointer-events: auto;
+}
+
+.record-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .record-button-ring {
