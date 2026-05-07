@@ -128,7 +128,7 @@ Viewer 的紅色錄影按鈕使用：
 目前 production site：
 
 ```text
-https://bang287-ar-app.netlify.app
+https://chengqi-ar-design-platform.netlify.app
 ```
 
 部署前建議：

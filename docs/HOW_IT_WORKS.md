@@ -383,7 +383,7 @@ Netlify 主要做：
 Production URL：
 
 ```text
-https://bang287-ar-app.netlify.app
+https://chengqi-ar-design-platform.netlify.app
 ```
 
 ## 十二、開發常用指令

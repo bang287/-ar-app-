@@ -5,7 +5,7 @@
 Production site:
 
 ```text
-https://bang287-ar-app.netlify.app
+https://chengqi-ar-design-platform.netlify.app
 ```
 
 更完整的架構與程式說明請看：
