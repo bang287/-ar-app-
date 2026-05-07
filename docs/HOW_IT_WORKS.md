@@ -32,13 +32,11 @@ flowchart LR
 
 ## 二、主要路由
 
-路由集中在 `src/App.tsx`，用 `window.location.pathname` 判斷目前頁面。後台路由會先經過 Supabase Auth guard；Viewer / Target 保持公開，方便手機掃描。
+路由集中在 `src/App.tsx`，用 `window.location.pathname` 判斷目前頁面。現在先採 demo 模式，不啟用後台登入；Viewer / Target 也保持公開，方便手機掃描。
 
 ```mermaid
 flowchart TD
-  Path["目前 URL path"] --> IsLogin{"是否 /login"}
-  IsLogin -->|是| Login["Login"]
-  IsLogin -->|否| IsViewer{"是否 /viewer/:id"}
+  Path["目前 URL path"] --> IsViewer{"是否 /viewer/:id"}
   IsViewer -->|是| Viewer["Viewer"]
   IsViewer -->|否| IsEditor{"是否 /editor/:id"}
   IsEditor -->|是| Editor["Editor"]
@@ -48,46 +46,35 @@ flowchart TD
   IsARTest -->|是| ARTest["ARTest"]
   IsARTest -->|否| IsSmoke{"是否 /mindar-smoke-test"}
   IsSmoke -->|是| Smoke["MindARSmokeTest"]
-  IsSmoke -->|否| Guard{"是否已登入"}
-  Guard -->|是| Gallery["Gallery"]
-  Guard -->|否| Login
+  IsSmoke -->|否| Gallery["Gallery"]
 ```
 
 各頁功能：
 
-- `/login`：後台登入頁，使用 Supabase email/password。
-- `/`：作品庫首頁，顯示資料夾和作品卡，需要登入。
-- `/editor/:projectId`：AR 編輯器，需要登入。
+- `/`：作品庫首頁，顯示資料夾和作品卡。
+- `/editor/:projectId`：AR 編輯器。
 - `/viewer/:projectId`：手機 AR 掃描 Viewer，公開。
 - `/target/:projectId`：乾淨 Trigger Image 頁，公開，給手機掃描用。
 - `/ar-test/:projectId`：用同一套專案圖層做最小 AR 測試，公開。
 - `/mindar-smoke-test`：MindAR 官方類型的 runtime 測試頁，公開，用來排除是否是手機瀏覽器或引擎問題。
 
-## 二之一、登入與權限
+## 二之一、Demo 權限模式
 
 主要檔案：
 
-- `src/auth/AuthContext.tsx`
-- `src/components/Login.tsx`
 - `supabase/schema.sql`
 
-登入流程：
+目前先不啟用後台登入，讓小組 demo 時可以直接建立、修改與掃描專案。Supabase schema 採 demo public read/write：
 
 ```mermaid
-sequenceDiagram
-  participant U as 後台使用者
-  participant L as Login
-  participant A as Supabase Auth
-  participant G as Gallery / Editor
-
-  U->>L: 輸入 email / password
-  L->>A: signInWithPassword
-  A-->>L: session
-  L-->>G: redirect 回原本後台頁
-  G->>A: 讀取目前 session
+flowchart LR
+  Anon["anon key"] --> ReadWrite["讀寫 folders / projects / ar-assets"]
+  Auth["authenticated"] --> ReadWrite
+  ReadWrite --> Viewer["Viewer 公開掃描"]
+  ReadWrite --> Editor["Editor 快速 demo"]
 ```
 
-目前採「管理員建帳號」模式，不提供前台註冊。四位成員登入後共用同一批作品資料。RLS 讓 `anon` 只能讀 Viewer 需要的資料，`authenticated` 才能寫入 projects、folders 和 Storage assets。
+這是快速原型設定。正式上線前應改回 authenticated-only 寫入規則，避免匿名使用者修改作品。
 
 ## 三、資料結構
 

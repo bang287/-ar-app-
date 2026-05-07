@@ -8,10 +8,9 @@
 
 核心功能：
 
-- 後台作品庫 `/`，需要登入。
-- 後台登入 `/login`，使用 Supabase Auth email/password。
-- AR 編輯器 `/editor/:projectId`，需要登入。
-- 手機 Viewer `/viewer/:projectId`，公開，不需要登入。
+- 作品庫 `/`，目前 demo 模式不需要登入。
+- AR 編輯器 `/editor/:projectId`，目前 demo 模式不需要登入。
+- 手機 Viewer `/viewer/:projectId`，公開。
 - 乾淨 Trigger Image 頁 `/target/:projectId`，公開。
 - AR 測試頁 `/ar-test/:projectId`，公開。
 - MindAR smoke test `/mindar-smoke-test`，公開。
@@ -23,7 +22,7 @@
 - Vite + React + TypeScript
 - Three.js
 - MindAR image tracking
-- Supabase Auth / Database / Storage
+- Supabase Database / Storage
 - Netlify Functions
 - Express local API fallback
 
@@ -59,21 +58,20 @@ Remove-Item "C:\path\to\file.txt"
 - 不要更改無關檔案。
 - 不要安裝新套件，除非功能確實需要；安裝後要跑 `npm audit --audit-level=moderate`。
 
-## 登入與權限
+## Demo 權限模式
 
-目前登入策略：
+目前策略：
 
-- 使用者帳號由管理員在 Supabase Authentication 建立。
-- 不開放前台註冊。
-- 後台所有登入使用者共用同一批專案。
+- 先不啟用後台登入，方便 demo 與小組快速測試。
+- Gallery / Editor / Viewer / Target 都可直接開啟。
 - Viewer / Target 公開可讀，方便手機掃描。
 
-Supabase RLS 目標：
+Supabase RLS 目前採 demo 模式：
 
-- `anon` 只能 select folders/projects/storage assets。
-- `authenticated` 可以 insert/update/delete folders/projects，也可以上傳素材。
+- `anon` 和 `authenticated` 都能讀寫 folders/projects/storage assets。
+- 正式上線前再改成 authenticated-only 寫入規則。
 
-如果修改 auth、RLS、路由保護，請同步更新 `README.md` 和 `supabase/schema.sql`。
+如果修改權限、RLS、路由保護，請同步更新 `README.md` 和 `supabase/schema.sql`。
 
 ## 常用指令
 
@@ -94,9 +92,7 @@ tsc --noEmit && vite build
 
 ## 主要檔案
 
-- `src/App.tsx`：路由與後台登入 guard。
-- `src/auth/AuthContext.tsx`：Supabase Auth session、登入、登出。
-- `src/components/Login.tsx`：後台登入頁。
+- `src/App.tsx`：路由入口。
 - `src/components/Gallery.tsx`：作品庫。
 - `src/components/Editor.tsx`：3D AR 編輯器。
 - `src/components/Viewer.tsx`：手機掃描 Viewer 和錄影功能。
@@ -179,7 +175,7 @@ git status --short
 尤其是：
 
 - 新路由
-- 登入/權限/RLS
+- 權限/RLS
 - 新資料欄位
 - Supabase schema 改動
 - AR 掃描流程

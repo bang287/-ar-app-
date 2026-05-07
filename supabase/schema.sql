@@ -24,9 +24,9 @@ create table if not exists public.projects (
 alter table public.folders enable row level security;
 alter table public.projects enable row level security;
 
--- Backstage policies:
--- anon can read published/demo content for Viewer.
--- authenticated users can manage the shared backstage projects.
+-- Demo policies:
+-- Public read/write with anon key for fast prototyping.
+-- Before production, replace these with authenticated-only backstage policies.
 drop policy if exists "Demo read folders" on public.folders;
 drop policy if exists "Demo insert folders" on public.folders;
 drop policy if exists "Demo update folders" on public.folders;
@@ -44,46 +44,46 @@ drop policy if exists "Backstage insert projects" on public.projects;
 drop policy if exists "Backstage update projects" on public.projects;
 drop policy if exists "Backstage delete projects" on public.projects;
 
-create policy "Backstage read folders"
+create policy "Demo read folders"
 on public.folders for select
 to anon, authenticated
 using (true);
 
-create policy "Backstage insert folders"
+create policy "Demo insert folders"
 on public.folders for insert
-to authenticated
+to anon, authenticated
 with check (true);
 
-create policy "Backstage update folders"
+create policy "Demo update folders"
 on public.folders for update
-to authenticated
+to anon, authenticated
 using (true)
 with check (true);
 
-create policy "Backstage delete folders"
+create policy "Demo delete folders"
 on public.folders for delete
-to authenticated
+to anon, authenticated
 using (true);
 
-create policy "Backstage read projects"
+create policy "Demo read projects"
 on public.projects for select
 to anon, authenticated
 using (true);
 
-create policy "Backstage insert projects"
+create policy "Demo insert projects"
 on public.projects for insert
-to authenticated
+to anon, authenticated
 with check (true);
 
-create policy "Backstage update projects"
+create policy "Demo update projects"
 on public.projects for update
-to authenticated
+to anon, authenticated
 using (true)
 with check (true);
 
-create policy "Backstage delete projects"
+create policy "Demo delete projects"
 on public.projects for delete
-to authenticated
+to anon, authenticated
 using (true);
 
 insert into storage.buckets (id, name, public)
@@ -99,23 +99,23 @@ drop policy if exists "Backstage insert ar assets" on storage.objects;
 drop policy if exists "Backstage update ar assets" on storage.objects;
 drop policy if exists "Backstage delete ar assets" on storage.objects;
 
-create policy "Backstage read ar assets"
+create policy "Demo public read ar assets"
 on storage.objects for select
 to anon, authenticated
 using (bucket_id = 'ar-assets');
 
-create policy "Backstage insert ar assets"
+create policy "Demo public insert ar assets"
 on storage.objects for insert
-to authenticated
+to anon, authenticated
 with check (bucket_id = 'ar-assets');
 
-create policy "Backstage update ar assets"
+create policy "Demo public update ar assets"
 on storage.objects for update
-to authenticated
+to anon, authenticated
 using (bucket_id = 'ar-assets')
 with check (bucket_id = 'ar-assets');
 
-create policy "Backstage delete ar assets"
+create policy "Demo public delete ar assets"
 on storage.objects for delete
-to authenticated
+to anon, authenticated
 using (bucket_id = 'ar-assets');

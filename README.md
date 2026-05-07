@@ -1,6 +1,6 @@
 # 承氣 WebAR 設計平台
 
-承氣是一個影像觸發式 WebAR 多圖層平台原型。後台使用帳號密碼登入後，可以建立 AR 專案、上傳 Trigger Image、新增圖片/影片圖層、調整 3D 空間、設定透明去背，並用手機 Viewer 掃描圖片顯示 AR 效果。
+承氣是一個影像觸發式 WebAR 多圖層平台原型。使用者可以建立 AR 專案、上傳 Trigger Image、新增圖片/影片圖層、調整 3D 空間、設定透明去背，並用手機 Viewer 掃描圖片顯示 AR 效果。
 
 Production site:
 
@@ -10,8 +10,8 @@ https://chengqi-ar-design-platform.netlify.app
 
 ## 核心功能
 
-- 後台登入：使用 Supabase Auth email/password，未登入不能進作品庫與 Editor。
-- 公開 Viewer：`/viewer/:projectId` 和 `/target/:projectId` 不需要登入，手機可直接掃描。
+- 作品庫：不需登入即可進入，方便 demo 與小組快速測試。
+- 公開 Viewer：`/viewer/:projectId` 和 `/target/:projectId` 可直接開啟，手機可直接掃描。
 - 作品庫：資料夾分類、作品卡、建立/刪除/下載 project JSON。
 - 3D Editor：Three.js + TransformControls 編輯 position、rotation、scale、Z 深度。
 - 多圖層：支援圖片/影片、多檔上傳、排序、顯示/隱藏、重新命名。
@@ -26,16 +26,15 @@ https://chengqi-ar-design-platform.netlify.app
 - Vite + React + TypeScript
 - Three.js
 - MindAR image tracking
-- Supabase Auth / Database / Storage
+- Supabase Database / Storage
 - Netlify Functions
 - Express local API fallback
 
 ## 路由
 
 ```text
-/                         後台作品庫，需要登入
-/login                    後台登入
-/editor/:projectId        AR 編輯器，需要登入
+/                         作品庫
+/editor/:projectId        AR 編輯器
 /viewer/:projectId        手機 AR Viewer，公開
 /target/:projectId        乾淨 Trigger Image，公開
 /ar-test/:projectId       專案 AR 測試頁，公開
@@ -79,18 +78,17 @@ npm run tunnel
 
 ## Supabase 設定
 
-1. 在 Supabase Authentication 建立小組成員帳號。
-2. 到 SQL Editor 執行 `supabase/schema.sql`。
-3. 確認 Storage bucket 是 public：
+1. 到 SQL Editor 執行 `supabase/schema.sql`。
+2. 確認 Storage bucket 是 public：
 
 ```text
 ar-assets
 ```
 
-新版 RLS 規則：
+目前 schema 採 demo 模式：
 
-- `anon`：只能讀取 folders、projects 和 `ar-assets`，供 Viewer 公開掃描。
-- `authenticated`：可新增、修改、刪除後台資料與上傳素材。
+- `anon` 和 `authenticated` 都能讀寫 folders、projects 和 `ar-assets`。
+- 這是為了快速 demo；正式上線前應改成登入後台與 authenticated-only 寫入規則。
 
 Service role key 只能放在 Netlify / Supabase 後端環境變數，不能提交到 GitHub。
 
@@ -120,9 +118,7 @@ npm audit --audit-level=moderate
 ## 主要檔案
 
 ```text
-src/App.tsx                         route guard 與路由入口
-src/auth/AuthContext.tsx            Supabase Auth 狀態
-src/components/Login.tsx            後台登入頁
+src/App.tsx                         路由入口
 src/components/Gallery.tsx          作品庫首頁
 src/components/Editor.tsx           3D 編輯器
 src/components/Viewer.tsx           手機 AR Viewer + 錄影

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, Download, Edit3, FolderPlus, LogOut, Menu, MoreVertical, Play, Plus, Search, Sparkles, Trash2, Type } from "lucide-react";
-import { useAuth } from "../auth/AuthContext";
+import { Box, Download, Edit3, FolderPlus, Menu, MoreVertical, Play, Plus, Search, Sparkles, Trash2, Type } from "lucide-react";
 import type { ARFolder, ARProject } from "../types/project";
 import { projectRepository } from "../data/projectRepository";
 
@@ -31,7 +30,6 @@ const downloadArtworkJson = (project: ARProject) => {
 };
 
 export const Gallery = () => {
-  const { user, signOut } = useAuth();
   const [folders, setFolders] = useState<ARFolder[]>([]);
   const [projects, setProjects] = useState<ARProject[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -122,11 +120,6 @@ export const Gallery = () => {
     await load();
   };
 
-  const logout = async () => {
-    await signOut();
-    window.location.href = "/login";
-  };
-
   return (
     <main className="gallery-shell">
       <header className="gallery-topbar">
@@ -151,12 +144,6 @@ export const Gallery = () => {
           <a className="discover-button" href={projects[0] ? `/viewer/${projects[0].id}` : "/"}>
             掃描展示
           </a>
-          <div className="account-pill">
-            <span>{user?.email ?? "本機模式"}</span>
-            <button onClick={logout} title="登出">
-              <LogOut size={16} />
-            </button>
-          </div>
         </div>
       </header>
 
