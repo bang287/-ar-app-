@@ -3,10 +3,10 @@ import { AlertTriangle, ArrowLeft, Camera, Clipboard, Layers, Play, RefreshCw, S
 import type { ARProject } from "../types/project";
 import { buildInfo } from "../buildInfo";
 import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "../ar/camera";
-import { loadMindARThree, type MindARThreeInstance, withTimeout } from "../ar/mindRuntime";
+import { startProjectMindARSession, type ProjectARDiagnostics } from "../ar/projectMindARSession";
+import { withTimeout } from "../ar/mindRuntime";
 import { projectRepository } from "../data/projectRepository";
 import { hydrateRuntimeProject } from "../data/hydrateRuntimeProject";
-import { createLayerMesh, type LayerMesh } from "../three/layerMesh";
 
 type ViewerMode = "idle" | "starting" | "tracking" | "lost" | "waiting-mind" | "error" | "loading" | "camera-test";
 type MindUrlCheck = {
@@ -17,13 +17,8 @@ type RuntimeDiagnostics = {
   camera: string;
   runtime: string;
   mindarStart: string;
-};
-
-const disposeMesh = (mesh: LayerMesh | null) => {
-  if (!mesh) return;
-  mesh.userData.video?.pause();
-  mesh.geometry.dispose();
-  mesh.material.dispose();
+  mindTarget: string;
+  layers: string;
 };
 
 const shortValue = (value?: string) => {
@@ -52,6 +47,8 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     camera: "not tested",
     runtime: "not loaded",
     mindarStart: "not started",
+    mindTarget: "not loaded",
+    layers: "not loaded",
   });
   const [loadedAt, setLoadedAt] = useState("");
   const [copiedDebug, setCopiedDebug] = useState(false);
@@ -59,7 +56,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
   const hasMindTarget = Boolean(project?.mindTargetUrl);
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
-  const patchDiagnostics = useCallback((patch: Partial<RuntimeDiagnostics>) => {
+  const patchDiagnostics = useCallback((patch: ProjectARDiagnostics) => {
     setDiagnostics((current) => ({ ...current, ...patch }));
   }, []);
 
@@ -98,7 +95,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     setMode("loading");
     setStatus("正在從 Supabase 讀取專案");
     setMindUrlCheck({ status: "unchecked", detail: "not checked" });
-    patchDiagnostics({ mindarStart: "not started" });
+    patchDiagnostics({ mindarStart: "not started", mindTarget: "not loaded", layers: "not loaded" });
     startedRef.current = false;
 
     try {
@@ -180,75 +177,24 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       return;
     }
 
-    let mindarThree: MindARThreeInstance | null = null;
-    let meshes: LayerMesh[] = [];
     try {
       setMode("starting");
-      setStatus("檢查手機相機權限");
-      patchDiagnostics({ camera: "requesting native getUserMedia", runtime: "not loaded", mindarStart: "not started" });
-
-      const stream = await withTimeout(requestCameraStream(), 10000, "Camera permission check timed out after 10 seconds");
-      const [track] = stream.getVideoTracks();
-      patchDiagnostics({ camera: `granted: ${track?.label || "camera stream"}` });
-      stopMediaStream(stream);
-
-      setStatus("載入 MindAR 官方 Three.js runtime");
-      const runtime = await loadMindARThree();
-      patchDiagnostics({ runtime: `loaded: ${runtime.source}` });
-
-      setStatus("建立 MindAR 圖片追蹤場景");
-      mindarThree = new runtime.MindARThree({
+      const session = await startProjectMindARSession({
         container: containerRef.current,
-        imageTargetSrc: project.mindTargetUrl,
-        maxTrack: 1,
-        uiLoading: "yes",
-        uiScanning: "yes",
-        uiError: "yes",
+        project,
+        startTimeoutMs: 60000,
+        onStatus: setStatus,
+        onDiagnostics: patchDiagnostics,
+        onTargetFound: () => setMode("tracking"),
+        onTargetLost: () => setMode("lost"),
       });
-      const { renderer, scene, camera } = mindarThree;
-      const anchor = mindarThree.addAnchor(0);
-
-      anchor.onTargetFound = () => {
-        setMode("tracking");
-        setStatus("已辨識 Trigger Image，正在顯示 AR 圖層");
-        meshes.forEach((mesh) => {
-          if (mesh.userData.video) void mesh.userData.video.play().catch(() => undefined);
-        });
-      };
-      anchor.onTargetLost = () => {
-        setMode("lost");
-        setStatus("追蹤暫停，請重新對準 Trigger Image");
-        meshes.forEach((mesh) => mesh.userData.video?.pause());
-      };
-
-      cleanupRef.current = () => {
-        meshes.forEach(disposeMesh);
-        renderer.setAnimationLoop(null);
-        try {
-          mindarThree?.stop();
-        } catch {
-          // MindAR can throw if stop is called before start fully resolves.
-        }
-      };
-
-      setStatus("啟動相機與圖片辨識");
-      patchDiagnostics({ mindarStart: "starting" });
-      await withTimeout(mindarThree.start(), 18000, "MindAR start timeout after 18 seconds. Try Chrome/Safari, close other camera apps, then retry.");
-      patchDiagnostics({ mindarStart: "resolved" });
+      cleanupRef.current = session.stop;
       setMode("lost");
-      setStatus("相機已啟動，請掃描 Trigger Image");
-      renderer.setAnimationLoop(() => renderer.render(scene, camera));
-
-      const loadedMeshes = await Promise.all(project.layers.map((layer) => createLayerMesh(layer).catch(() => null)));
-      meshes = loadedMeshes.filter((mesh): mesh is LayerMesh => Boolean(mesh));
-      meshes.forEach((mesh) => anchor.group.add(mesh));
-      setStatus("AR 圖層已載入，請對準 Trigger Image");
     } catch (error) {
       console.error(error);
       cleanupRef.current?.();
       cleanupRef.current = null;
       const message = error instanceof Error ? error.message : "相機或 MindAR 啟動失敗";
-      if (message.toLowerCase().includes("camera")) patchDiagnostics({ camera: `failed: ${message}` });
       patchDiagnostics({ mindarStart: `failed: ${message}` });
       setMode("error");
       setStatus(message);
@@ -278,13 +224,27 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       ["browser", navigator.userAgent],
       ["camera", diagnostics.camera],
       ["runtime", diagnostics.runtime],
+      ["mindTarget", diagnostics.mindTarget],
+      ["layers", diagnostics.layers],
       ["mindarStart", diagnostics.mindarStart],
       ["triggerImageId", shortValue(project?.triggerImageId)],
       ["mindTargetId", shortValue(project?.mindTargetId)],
       ["mindTargetUrl", project?.mindTargetUrl ? shortValue(project.mindTargetUrl) : "no"],
       [".mind URL", mindUrlCheck.detail],
     ],
-    [diagnostics.camera, diagnostics.mindarStart, diagnostics.runtime, loadedAt, mindUrlCheck.detail, project?.mindTargetId, project?.mindTargetUrl, project?.triggerImageId, projectId],
+    [
+      diagnostics.camera,
+      diagnostics.layers,
+      diagnostics.mindTarget,
+      diagnostics.mindarStart,
+      diagnostics.runtime,
+      loadedAt,
+      mindUrlCheck.detail,
+      project?.mindTargetId,
+      project?.mindTargetUrl,
+      project?.triggerImageId,
+      projectId,
+    ],
   );
   const debugText = useMemo(() => debugRows.map(([label, value]) => `${label}: ${value}`).join("\n"), [debugRows]);
 
@@ -322,7 +282,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
               <Clipboard size={19} />
               {copiedDebug ? "Copied" : "Copy Debug"}
             </button>
-            <p>先用 Camera Test 確認手機瀏覽器能開相機，再用 Start AR 啟動 MindAR 圖片追蹤。</p>
+            <p>先用 Camera Test 確認手機瀏覽器能開相機，再用 Start AR 啟動 MindAR 並顯示專案圖層。</p>
           </div>
         )}
 

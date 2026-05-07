@@ -1,0 +1,166 @@
+import type { ARProject } from "../types/project";
+import { createLayerMesh, type LayerMesh } from "../three/layerMesh";
+import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "./camera";
+import { loadMindARThree, type MindARThreeInstance, withTimeout } from "./mindRuntime";
+
+export type ProjectARDiagnostics = {
+  camera?: string;
+  runtime?: string;
+  mindarStart?: string;
+  mindTarget?: string;
+  layers?: string;
+};
+
+export type ProjectARSession = {
+  stop: () => void;
+};
+
+type ProjectARSessionOptions = {
+  container: HTMLElement;
+  project: ARProject;
+  startTimeoutMs?: number;
+  onStatus?: (status: string) => void;
+  onDiagnostics?: (diagnostics: ProjectARDiagnostics) => void;
+  onTargetFound?: () => void;
+  onTargetLost?: () => void;
+};
+
+const disposeLayerMesh = (mesh: LayerMesh) => {
+  mesh.userData.video?.pause();
+  mesh.geometry.dispose();
+  mesh.material.dispose();
+};
+
+const playLayerVideos = (meshes: LayerMesh[]) => {
+  meshes.forEach((mesh) => {
+    if (mesh.userData.video) void mesh.userData.video.play().catch(() => undefined);
+  });
+};
+
+const pauseLayerVideos = (meshes: LayerMesh[]) => {
+  meshes.forEach((mesh) => mesh.userData.video?.pause());
+};
+
+const fetchMindTargetObjectUrl = async (url: string) => {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Unable to read .mind target: ${response.status} ${response.statusText}`);
+
+  const blob = await response.blob();
+  if (!blob.size) throw new Error("The .mind target file is empty");
+
+  return {
+    objectUrl: URL.createObjectURL(blob),
+    detail: `${response.status} OK, ${blob.size} bytes, ${blob.type || "application/octet-stream"}`,
+  };
+};
+
+export const startProjectMindARSession = async ({
+  container,
+  project,
+  startTimeoutMs = 60000,
+  onStatus,
+  onDiagnostics,
+  onTargetFound,
+  onTargetLost,
+}: ProjectARSessionOptions): Promise<ProjectARSession> => {
+  if (!project.mindTargetUrl) throw new Error("This project does not have a .mind target yet");
+
+  let mindarThree: MindARThreeInstance | null = null;
+  let mindTargetObjectUrl: string | null = null;
+  let meshes: LayerMesh[] = [];
+
+  const stop = () => {
+    pauseLayerVideos(meshes);
+    meshes.forEach(disposeLayerMesh);
+    meshes = [];
+
+    try {
+      mindarThree?.renderer.setAnimationLoop(null);
+      mindarThree?.stop();
+    } catch {
+      // MindAR can throw if stop is called while startup is still settling.
+    }
+    mindarThree = null;
+
+    if (mindTargetObjectUrl) {
+      URL.revokeObjectURL(mindTargetObjectUrl);
+      mindTargetObjectUrl = null;
+    }
+  };
+
+  try {
+    onStatus?.("正在讀取 .mind target");
+    onDiagnostics?.({ mindTarget: "downloading" });
+    const target = await withTimeout(fetchMindTargetObjectUrl(project.mindTargetUrl), 15000, ".mind target download timeout after 15 seconds");
+    mindTargetObjectUrl = target.objectUrl;
+    onDiagnostics?.({ mindTarget: target.detail });
+
+    onStatus?.("檢查手機相機權限");
+    onDiagnostics?.({ camera: "requesting native getUserMedia", mindarStart: "not started" });
+    const stream = await withTimeout(requestCameraStream(), 10000, "Camera permission check timed out after 10 seconds");
+    const [track] = stream.getVideoTracks();
+    onDiagnostics?.({ camera: `granted: ${track?.label || "camera stream"}` });
+    stopMediaStream(stream);
+
+    onStatus?.("載入 MindAR 官方 Three.js runtime");
+    onDiagnostics?.({ runtime: "loading" });
+    const runtime = await loadMindARThree();
+    onDiagnostics?.({ runtime: `loaded: ${runtime.source}` });
+
+    onStatus?.("建立 MindAR 圖片追蹤場景");
+    mindarThree = new runtime.MindARThree({
+      container,
+      imageTargetSrc: mindTargetObjectUrl,
+      maxTrack: 1,
+      uiLoading: "yes",
+      uiScanning: "yes",
+      uiError: "yes",
+    });
+
+    const { renderer, scene, camera } = mindarThree;
+    const anchor = mindarThree.addAnchor(0);
+
+    anchor.onTargetFound = () => {
+      onStatus?.("已辨識 Trigger Image，正在顯示專案圖層");
+      playLayerVideos(meshes);
+      onTargetFound?.();
+    };
+    anchor.onTargetLost = () => {
+      onStatus?.("追蹤暫停，請重新對準 Trigger Image");
+      pauseLayerVideos(meshes);
+      onTargetLost?.();
+    };
+
+    onStatus?.(`載入 ${project.layers.length} 個 AR 圖層`);
+    const orderedLayers = [...project.layers].sort((left, right) => left.order - right.order);
+    const loadedMeshes = await Promise.all(
+      orderedLayers.map((layer) =>
+        createLayerMesh(layer).catch((error) => {
+          console.warn(`Unable to load AR layer ${layer.id}`, error);
+          return null;
+        }),
+      ),
+    );
+    meshes = loadedMeshes.filter((mesh): mesh is LayerMesh => Boolean(mesh));
+    meshes.forEach((mesh) => anchor.group.add(mesh));
+    onDiagnostics?.({ layers: `${meshes.length}/${project.layers.length} loaded` });
+
+    onStatus?.("啟動相機與圖片辨識");
+    onDiagnostics?.({ mindarStart: "starting" });
+    await withTimeout(mindarThree.start(), startTimeoutMs, `MindAR start timeout after ${Math.round(startTimeoutMs / 1000)} seconds`);
+    onDiagnostics?.({ mindarStart: "resolved" });
+
+    renderer.setAnimationLoop(() => renderer.render(scene, camera));
+    onStatus?.("相機已啟動，請掃描 Trigger Image");
+
+    return { stop };
+  } catch (error) {
+    stop();
+    if (error instanceof DOMException) {
+      const message = cameraErrorMessage(error);
+      onDiagnostics?.({ camera: `failed: ${message}` });
+      throw new Error(message);
+    }
+    throw error;
+  }
+};
