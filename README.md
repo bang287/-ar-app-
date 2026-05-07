@@ -1,6 +1,6 @@
 # 承氣 WebAR Editor
 
-承氣是一個 Artivive 類型的 WebAR 原型平台。使用者可以建立自己的 AR 專案，上傳 Trigger Image，新增多個圖片/影片圖層，在 3D 編輯器裡調整位置、旋轉、縮放、深度、透明度與色鍵去背，最後用手機瀏覽器掃描圖片顯示 AR 效果。
+承氣是一個影像觸發式 WebAR 多圖層原型平台。使用者可以建立自己的 AR 專案，上傳 Trigger Image，新增多個圖片/影片圖層，在 3D 編輯器裡調整位置、旋轉、縮放、深度、透明度與色鍵去背，最後用手機瀏覽器掃描圖片顯示 AR 效果。
 
 Production site:
 
@@ -15,7 +15,7 @@ https://bang287-ar-app.netlify.app
 
 ## 功能
 
-- 作品庫首頁：類 Artivive 工作區，可建立資料夾和 AR 作品。
+- 作品庫首頁：可建立資料夾和 AR 作品。
 - 多圖層 Editor：支援圖片/影片圖層、多檔上傳、排序、顯示/隱藏、刪除和重新命名。
 - 3D Transform 編輯：使用 Three.js + TransformControls 調整 position、rotation、scale 和 Z 深度。
 - Trigger Image：上傳觸發圖片並產生 MindAR `.mind` target。
