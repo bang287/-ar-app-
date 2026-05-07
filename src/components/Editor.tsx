@@ -6,6 +6,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  ExternalLink,
   Image,
   Layers,
   MousePointer2,
@@ -103,6 +104,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
   const sortedLayers = useMemo(() => [...project.layers].sort((a, b) => a.order - b.order), [project.layers]);
   const selectedLayer = project.layers.find((layer) => layer.id === selectedLayerId) ?? null;
   const viewerUrl = `${window.location.origin}/viewer/${project.id}`;
+  const targetUrl = `${window.location.origin}/target/${project.id}`;
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const mobileDemoMessage = isLocalhost
     ? "手機不能開 localhost。請使用 Netlify HTTPS URL，或在電腦執行 npm run tunnel 後用 tunnel 網址。"
@@ -710,6 +712,12 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
           <div className="publish-group">
             <span className="build-pill">build {buildInfo.version}</span>
             <span className={`mind-pill ${mindStatus}`}>{mindLabel(mindStatus, mindProgress)}</span>
+            {project.triggerImageUrl && (
+              <a href={targetUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={16} />
+                Trigger 圖
+              </a>
+            )}
             <button onClick={copyViewerUrl}>{copied ? <Check size={17} /> : <Copy size={17} />} Viewer URL</button>
             <button className="demo-url-button" onClick={copyDemoInstruction}>
               {isLocalhost && <AlertTriangle size={16} />}

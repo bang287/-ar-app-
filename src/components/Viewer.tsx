@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Camera, Clipboard, Layers, Play, RefreshCw, Smartphone, Video } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Camera, Clipboard, ExternalLink, Layers, Play, RefreshCw, Smartphone, Video } from "lucide-react";
 import type { ARProject } from "../types/project";
 import { buildInfo } from "../buildInfo";
 import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "../ar/camera";
@@ -21,6 +21,9 @@ type RuntimeDiagnostics = {
   mindTarget: string;
   mindCompilerVersion: string;
   layers: string;
+  layersLoaded: string;
+  imageTargetSrcMode: string;
+  targetFoundCount: string;
 };
 
 const shortValue = (value?: string) => {
@@ -37,6 +40,18 @@ const formatBuildTime = (value: string) => {
 
 const isCompactDebugMode = (mode: ViewerMode) => mode === "starting" || mode === "tracking" || mode === "lost" || mode === "camera-test";
 
+const emptyDiagnostics: RuntimeDiagnostics = {
+  camera: "not tested",
+  runtime: "not loaded",
+  mindarStart: "not started",
+  mindTarget: "not loaded",
+  mindCompilerVersion: "missing",
+  layers: "not loaded",
+  layersLoaded: "0",
+  imageTargetSrcMode: "not set",
+  targetFoundCount: "0",
+};
+
 export const Viewer = ({ projectId }: { projectId: string }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -45,18 +60,12 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
   const [status, setStatus] = useState("載入 AR 專案");
   const [mode, setMode] = useState<ViewerMode>("loading");
   const [mindUrlCheck, setMindUrlCheck] = useState<MindUrlCheck>({ status: "unchecked", detail: "not checked" });
-  const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics>({
-    camera: "not tested",
-    runtime: "not loaded",
-    mindarStart: "not started",
-    mindTarget: "not loaded",
-    mindCompilerVersion: "missing",
-    layers: "not loaded",
-  });
+  const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics>(emptyDiagnostics);
   const [loadedAt, setLoadedAt] = useState("");
   const [copiedDebug, setCopiedDebug] = useState(false);
 
   const hasMindTarget = Boolean(project?.mindTargetUrl);
+  const targetUrl = project ? `${window.location.origin}/target/${project.id}` : "";
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
   const patchDiagnostics = useCallback((patch: ProjectARDiagnostics) => {
@@ -96,9 +105,9 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
   const loadProject = useCallback(async () => {
     clearStage();
     setMode("loading");
-    setStatus("正在從 Supabase 讀取專案");
+    setStatus("正在從 Supabase 載入專案");
     setMindUrlCheck({ status: "unchecked", detail: "not checked" });
-    patchDiagnostics({ mindarStart: "not started", mindTarget: "not loaded", layers: "not loaded" });
+    setDiagnostics(emptyDiagnostics);
     startedRef.current = false;
 
     try {
@@ -113,10 +122,10 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
         setStatus(".mind ready，請點 Start AR");
         setMode("idle");
       } else if (hasAnyMindTarget(hydrated)) {
-        setStatus(`這個 .mind 不是 ${MIND_AR_COMPILER_VERSION} 產生，請回 Editor 重新產生 .mind`);
+        setStatus(`這份 .mind 不是 ${MIND_AR_COMPILER_VERSION} 產生，請回 Editor 重新產生`);
         setMode("waiting-mind");
       } else {
-        setStatus("尚未附加 .mind，請回 Editor 等到 .mind ready");
+        setStatus("尚未產生 .mind，請回 Editor 等到 .mind ready");
         setMode("waiting-mind");
       }
     } catch (error) {
@@ -143,7 +152,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     if (!containerRef.current) return;
     clearStage();
     setMode("camera-test");
-    setStatus("Camera Test：正在要求相機權限");
+    setStatus("Camera Test：正在開啟原生相機");
     patchDiagnostics({ camera: "requesting native getUserMedia", mindarStart: "not started" });
 
     try {
@@ -159,7 +168,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       video.srcObject = stream;
       containerRef.current.appendChild(video);
       await video.play();
-      setStatus("Camera Test OK，可以看到相機畫面");
+      setStatus("Camera Test OK：可看到手機相機畫面");
 
       cleanupRef.current = () => {
         stopMediaStream(stream);
@@ -180,7 +189,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
 
     if (!project.mindTargetUrl) {
       setMode("waiting-mind");
-      setStatus("這個專案還沒有 .mind，請回 Editor 重新整理或等待產生完成");
+      setStatus("這個專案沒有 .mind，請回 Editor 重新產生");
       return;
     }
 
@@ -201,7 +210,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       console.error(error);
       cleanupRef.current?.();
       cleanupRef.current = null;
-      const message = error instanceof Error ? error.message : "相機或 MindAR 啟動失敗";
+      const message = error instanceof Error ? error.message : "啟動 MindAR 失敗";
       patchDiagnostics({ mindarStart: `failed: ${message}` });
       setMode("error");
       setStatus(message);
@@ -233,8 +242,11 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       ["runtime", diagnostics.runtime],
       ["mindTarget", diagnostics.mindTarget],
       ["mindCompilerVersion", diagnostics.mindCompilerVersion],
-      ["layers", diagnostics.layers],
+      ["imageTargetSrcMode", diagnostics.imageTargetSrcMode],
       ["mindarStart", diagnostics.mindarStart],
+      ["targetFoundCount", diagnostics.targetFoundCount],
+      ["layers", diagnostics.layers],
+      ["layersLoaded", diagnostics.layersLoaded],
       ["triggerImageId", shortValue(project?.triggerImageId)],
       ["mindTargetId", shortValue(project?.mindTargetId)],
       ["mindTargetUrl", project?.mindTargetUrl ? shortValue(project.mindTargetUrl) : "no"],
@@ -242,11 +254,14 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     ],
     [
       diagnostics.camera,
+      diagnostics.imageTargetSrcMode,
       diagnostics.layers,
-      diagnostics.mindTarget,
+      diagnostics.layersLoaded,
       diagnostics.mindCompilerVersion,
+      diagnostics.mindTarget,
       diagnostics.mindarStart,
       diagnostics.runtime,
+      diagnostics.targetFoundCount,
       loadedAt,
       mindUrlCheck.detail,
       project?.mindTargetId,
@@ -283,6 +298,10 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
               <Camera size={22} />
               Start AR
             </button>
+            <a className="viewer-panel-link" href={targetUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={18} />
+              開啟乾淨 Trigger 圖
+            </a>
             <button className="secondary" onClick={runCameraTest}>
               <Video size={20} />
               Camera Test
@@ -291,7 +310,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
               <Clipboard size={19} />
               {copiedDebug ? "Copied" : "Copy Debug"}
             </button>
-            <p>先用 Camera Test 確認手機瀏覽器能開相機，再用 Start AR 啟動 MindAR 並顯示專案圖層。</p>
+            <p>掃描時請對準「乾淨 Trigger 圖」，不要掃 Editor 畫布或有圖層覆蓋的截圖。</p>
           </div>
         )}
 
@@ -301,6 +320,10 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
               <RefreshCw size={22} />
               Retry Start AR
             </button>
+            <a className="viewer-panel-link" href={targetUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={18} />
+              開啟乾淨 Trigger 圖
+            </a>
             <button className="secondary" onClick={runCameraTest}>
               <Video size={20} />
               Camera Test
@@ -320,16 +343,16 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
               Reload from Supabase
             </button>
             <a className="viewer-panel-link" href={`/editor/${projectId}`}>
-              回 Editor 檢查 .mind
+              回 Editor 產生 .mind
             </a>
-            <p>Viewer 需要 .mind 才能做手機掃描。請回 Editor 上傳 Trigger Image，等到右上顯示 .mind ready。</p>
+            <p>Viewer 需要目前版本的 .mind 才能掃描。請回 Editor 重新產生後再重新載入。</p>
           </div>
         )}
 
         {isLocalhost && (
           <div className="viewer-warning">
             <AlertTriangle size={16} />
-            <span>手機不能使用 localhost，請用 Netlify HTTPS 網址。</span>
+            <span>手機不能使用 localhost，請用 Netlify HTTPS URL。</span>
           </div>
         )}
 
@@ -353,7 +376,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
               </div>
             ))}
           </dl>
-          <small>.mind 是二進位追蹤檔，手機直接打開出現「無法載入物件」是正常的，不代表 AR 壞掉。</small>
+          <small>如果 targetFoundCount 一直是 0，代表還沒有辨識到 Trigger Image；請用 /target 頁面的乾淨圖片測試。</small>
         </div>
 
         <div className="viewer-bottom">
@@ -363,6 +386,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
           <span>
             <Layers size={16} /> {project?.layers.length ?? 0} layers
           </span>
+          {project && <a href={`/target/${project.id}`}>Trigger</a>}
           <span>build {buildInfo.version}</span>
           <a href={`/ar-test/${projectId}`}>AR Test</a>
         </div>

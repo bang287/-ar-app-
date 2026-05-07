@@ -26,6 +26,11 @@
     Cache-Control = "no-cache, no-store, must-revalidate"
 
 [[headers]]
+  for = "/target/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
   for = "/mindar-smoke-test"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"

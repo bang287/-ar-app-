@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as THREE from "three";
 import { ArrowLeft, Camera, Clipboard, ExternalLink, RefreshCw } from "lucide-react";
 import { buildInfo } from "../buildInfo";
 import { requestCameraStream, stopMediaStream } from "../ar/camera";
@@ -16,16 +15,6 @@ const formatBuildTime = (value: string) => {
   return date.toLocaleString("zh-Hant", { hour12: false });
 };
 
-const fetchObjectUrl = async (url: string) => {
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Unable to fetch official .mind: ${response.status} ${response.statusText}`);
-  const blob = await response.blob();
-  return {
-    objectUrl: URL.createObjectURL(blob),
-    detail: `${response.status} OK, ${blob.size} bytes`,
-  };
-};
-
 export const MindARSmokeTest = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -36,8 +25,9 @@ export const MindARSmokeTest = () => {
     build: `${buildInfo.version} / ${formatBuildTime(buildInfo.builtAt)}`,
     camera: "not tested",
     runtime: "not loaded",
-    mindTarget: "not loaded",
+    mindTarget: "direct official URL",
     mindarStart: "not started",
+    targetFoundCount: "0",
     browser: navigator.userAgent,
   });
 
@@ -54,18 +44,10 @@ export const MindARSmokeTest = () => {
     clearStage();
     setMode("starting");
 
-    let objectUrl: string | null = null;
     let mindarThree: MindARThreeInstance | null = null;
-    let marker: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
     try {
-      setStatus("下載官方 .mind target");
-      setDebug((current) => ({ ...current, mindTarget: "downloading", mindarStart: "not started" }));
-      const target = await withTimeout(fetchObjectUrl(officialMindUrl), 15000, "Official .mind download timeout");
-      objectUrl = target.objectUrl;
-      setDebug((current) => ({ ...current, mindTarget: target.detail }));
-
       setStatus("檢查手機相機權限");
-      setDebug((current) => ({ ...current, camera: "requesting native getUserMedia" }));
+      setDebug((current) => ({ ...current, camera: "requesting native getUserMedia", mindarStart: "not started", targetFoundCount: "0" }));
       const stream = await withTimeout(requestCameraStream(), 10000, "Camera permission check timed out after 10 seconds");
       const [track] = stream.getVideoTracks();
       setDebug((current) => ({ ...current, camera: `granted: ${track?.label || "camera stream"}` }));
@@ -73,11 +55,11 @@ export const MindARSmokeTest = () => {
 
       setStatus("載入 MindAR runtime");
       const runtime = await loadMindARThree();
-      setDebug((current) => ({ ...current, runtime: `loaded: ${runtime.source}` }));
+      setDebug((current) => ({ ...current, runtime: `loaded: ${runtime.source}`, mindTarget: "direct official URL" }));
 
       mindarThree = new runtime.MindARThree({
         container: containerRef.current,
-        imageTargetSrc: objectUrl,
+        imageTargetSrc: officialMindUrl,
         maxTrack: 1,
         uiLoading: "yes",
         uiScanning: "yes",
@@ -85,11 +67,17 @@ export const MindARSmokeTest = () => {
       });
       const { renderer, scene, camera } = mindarThree;
       const anchor = mindarThree.addAnchor(0);
-      marker = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.55), new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.85 }));
+      const marker = new runtime.THREE.Mesh(
+        new runtime.THREE.PlaneGeometry(1, 0.55),
+        new runtime.THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.85 }),
+      );
       marker.position.z = 0.04;
       anchor.group.add(marker);
 
+      let targetFoundCount = 0;
       anchor.onTargetFound = () => {
+        targetFoundCount += 1;
+        setDebug((current) => ({ ...current, targetFoundCount: String(targetFoundCount) }));
         setMode("tracking");
         setStatus("官方 smoke test 已辨識 target");
       };
@@ -99,15 +87,14 @@ export const MindARSmokeTest = () => {
       };
 
       cleanupRef.current = () => {
-        marker?.geometry.dispose();
-        marker?.material.dispose();
+        marker.geometry.dispose();
+        marker.material.dispose();
         renderer.setAnimationLoop(null);
         try {
           mindarThree?.stop();
         } catch {
           // Ignore half-started MindAR stop errors.
         }
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
       };
 
       setStatus("啟動官方 MindAR 測試");
@@ -121,7 +108,6 @@ export const MindARSmokeTest = () => {
       console.error(error);
       cleanupRef.current?.();
       cleanupRef.current = null;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
       const message = error instanceof Error ? error.message : "MindAR smoke test failed";
       setDebug((current) => ({ ...current, mindarStart: `failed: ${message}` }));
       setMode("error");
@@ -137,6 +123,7 @@ export const MindARSmokeTest = () => {
       ["runtime", debug.runtime],
       ["mindTarget", debug.mindTarget],
       ["mindarStart", debug.mindarStart],
+      ["targetFoundCount", debug.targetFoundCount],
       ["browser", debug.browser],
     ],
     [debug],
@@ -178,7 +165,7 @@ export const MindARSmokeTest = () => {
               {copied ? "Copied" : "Copy Debug"}
             </button>
             <img className="smoke-target-thumb" src={officialTargetImageUrl} alt="Official MindAR target" />
-            <p>這頁只測官方 MindAR runtime。若這頁也一直轉圈，問題在 runtime/瀏覽器；若這頁可用，專案需要重新產生 .mind。</p>
+            <p>這頁照官方範例直接使用官方 .mind URL。若這頁可辨識，專案問題通常在 Trigger 圖或 .mind。</p>
           </div>
         )}
 

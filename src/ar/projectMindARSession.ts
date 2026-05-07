@@ -1,8 +1,8 @@
 import type { ARProject } from "../types/project";
-import { createLayerMesh, type LayerMesh } from "../three/layerMesh";
 import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "./camera";
 import { loadMindARThree, type MindARThreeInstance, withTimeout } from "./mindRuntime";
 import { hasCurrentMindTarget, MIND_AR_COMPILER_VERSION } from "./mindVersion";
+import { createRuntimeLayerMesh, type RuntimeLayerMesh } from "./runtimeLayerMesh";
 
 export type ProjectARDiagnostics = {
   camera?: string;
@@ -11,6 +11,9 @@ export type ProjectARDiagnostics = {
   mindTarget?: string;
   mindCompilerVersion?: string;
   layers?: string;
+  layersLoaded?: string;
+  imageTargetSrcMode?: string;
+  targetFoundCount?: string;
 };
 
 export type ProjectARSession = {
@@ -27,33 +30,20 @@ type ProjectARSessionOptions = {
   onTargetLost?: () => void;
 };
 
-const disposeLayerMesh = (mesh: LayerMesh) => {
+const disposeLayerMesh = (mesh: RuntimeLayerMesh) => {
   mesh.userData.video?.pause();
   mesh.geometry.dispose();
   mesh.material.dispose();
 };
 
-const playLayerVideos = (meshes: LayerMesh[]) => {
+const playLayerVideos = (meshes: RuntimeLayerMesh[]) => {
   meshes.forEach((mesh) => {
     if (mesh.userData.video) void mesh.userData.video.play().catch(() => undefined);
   });
 };
 
-const pauseLayerVideos = (meshes: LayerMesh[]) => {
+const pauseLayerVideos = (meshes: RuntimeLayerMesh[]) => {
   meshes.forEach((mesh) => mesh.userData.video?.pause());
-};
-
-const fetchMindTargetObjectUrl = async (url: string) => {
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Unable to read .mind target: ${response.status} ${response.statusText}`);
-
-  const blob = await response.blob();
-  if (!blob.size) throw new Error("The .mind target file is empty");
-
-  return {
-    objectUrl: URL.createObjectURL(blob),
-    detail: `${response.status} OK, ${blob.size} bytes, ${blob.type || "application/octet-stream"}`,
-  };
 };
 
 export const startProjectMindARSession = async ({
@@ -71,8 +61,10 @@ export const startProjectMindARSession = async ({
   }
 
   let mindarThree: MindARThreeInstance | null = null;
-  let mindTargetObjectUrl: string | null = null;
-  let meshes: LayerMesh[] = [];
+  let meshes: RuntimeLayerMesh[] = [];
+  let targetVisible = false;
+  let targetFoundCount = 0;
+  let layersPromise: Promise<RuntimeLayerMesh[]> | null = null;
 
   const stop = () => {
     pauseLayerVideos(meshes);
@@ -86,20 +78,12 @@ export const startProjectMindARSession = async ({
       // MindAR can throw if stop is called while startup is still settling.
     }
     mindarThree = null;
-
-    if (mindTargetObjectUrl) {
-      URL.revokeObjectURL(mindTargetObjectUrl);
-      mindTargetObjectUrl = null;
-    }
   };
 
   try {
     onDiagnostics?.({ mindCompilerVersion: project.mindCompilerVersion ?? "missing" });
-    onStatus?.("正在讀取 .mind target");
-    onDiagnostics?.({ mindTarget: "downloading" });
-    const target = await withTimeout(fetchMindTargetObjectUrl(project.mindTargetUrl), 15000, ".mind target download timeout after 15 seconds");
-    mindTargetObjectUrl = target.objectUrl;
-    onDiagnostics?.({ mindTarget: target.detail });
+    onStatus?.("準備使用 .mind URL");
+    onDiagnostics?.({ mindTarget: "direct-url", imageTargetSrcMode: "direct-url", targetFoundCount: "0", layersLoaded: "0" });
 
     onStatus?.("檢查手機相機權限");
     onDiagnostics?.({ camera: "requesting native getUserMedia", mindarStart: "not started" });
@@ -116,7 +100,7 @@ export const startProjectMindARSession = async ({
     onStatus?.("建立 MindAR 圖片追蹤場景");
     mindarThree = new runtime.MindARThree({
       container,
-      imageTargetSrc: mindTargetObjectUrl,
+      imageTargetSrc: project.mindTargetUrl,
       maxTrack: 1,
       uiLoading: "yes",
       uiScanning: "yes",
@@ -125,31 +109,50 @@ export const startProjectMindARSession = async ({
 
     const { renderer, scene, camera } = mindarThree;
     const anchor = mindarThree.addAnchor(0);
+    const orderedLayers = [...project.layers].sort((left, right) => left.order - right.order);
+    const ensureLayersLoaded = async () => {
+      if (!layersPromise) {
+        onStatus?.(`已辨識 Trigger Image，載入 ${project.layers.length} 個專案圖層`);
+        onDiagnostics?.({ layers: "loading", layersLoaded: `0/${project.layers.length}` });
+        layersPromise = Promise.all(
+          orderedLayers.map((layer) =>
+            createRuntimeLayerMesh(runtime.THREE, layer).catch((error) => {
+              console.warn(`Unable to load AR layer ${layer.id}`, error);
+              return null;
+            }),
+          ),
+        ).then((loadedMeshes) => {
+          meshes = loadedMeshes.filter((mesh): mesh is RuntimeLayerMesh => Boolean(mesh));
+          meshes.forEach((mesh) => anchor.group.add(mesh));
+          onDiagnostics?.({ layers: `${meshes.length}/${project.layers.length} loaded`, layersLoaded: `${meshes.length}/${project.layers.length}` });
+          return meshes;
+        });
+      }
+
+      const loadedMeshes = await layersPromise;
+      if (targetVisible) {
+        playLayerVideos(loadedMeshes);
+        onStatus?.(`已辨識 Trigger Image，顯示 ${loadedMeshes.length} 個 AR 圖層`);
+      }
+    };
 
     anchor.onTargetFound = () => {
-      onStatus?.("已辨識 Trigger Image，正在顯示專案圖層");
-      playLayerVideos(meshes);
+      targetVisible = true;
+      targetFoundCount += 1;
+      onDiagnostics?.({ targetFoundCount: String(targetFoundCount) });
+      void ensureLayersLoaded().catch((error) => {
+        console.error(error);
+        onDiagnostics?.({ layers: `failed: ${error instanceof Error ? error.message : String(error)}` });
+        onStatus?.("已辨識 Trigger Image，但圖層載入失敗");
+      });
       onTargetFound?.();
     };
     anchor.onTargetLost = () => {
       onStatus?.("追蹤暫停，請重新對準 Trigger Image");
+      targetVisible = false;
       pauseLayerVideos(meshes);
       onTargetLost?.();
     };
-
-    onStatus?.(`載入 ${project.layers.length} 個 AR 圖層`);
-    const orderedLayers = [...project.layers].sort((left, right) => left.order - right.order);
-    const loadedMeshes = await Promise.all(
-      orderedLayers.map((layer) =>
-        createLayerMesh(layer).catch((error) => {
-          console.warn(`Unable to load AR layer ${layer.id}`, error);
-          return null;
-        }),
-      ),
-    );
-    meshes = loadedMeshes.filter((mesh): mesh is LayerMesh => Boolean(mesh));
-    meshes.forEach((mesh) => anchor.group.add(mesh));
-    onDiagnostics?.({ layers: `${meshes.length}/${project.layers.length} loaded` });
 
     onStatus?.("啟動相機與圖片辨識");
     onDiagnostics?.({ mindarStart: "starting" });

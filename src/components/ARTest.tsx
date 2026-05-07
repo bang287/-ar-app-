@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Camera, Clipboard, Layers, RefreshCw } from "lucide-react";
+import { ArrowLeft, Camera, Clipboard, ExternalLink, Layers, RefreshCw } from "lucide-react";
 import { buildInfo } from "../buildInfo";
 import { startProjectMindARSession, type ProjectARDiagnostics } from "../ar/projectMindARSession";
 import { hasAnyMindTarget, hasCurrentMindTarget, MIND_AR_COMPILER_VERSION } from "../ar/mindVersion";
@@ -15,6 +15,9 @@ type RuntimeDiagnostics = {
   mindTarget: string;
   mindCompilerVersion: string;
   layers: string;
+  layersLoaded: string;
+  imageTargetSrcMode: string;
+  targetFoundCount: string;
 };
 
 const formatBuildTime = (value: string) => {
@@ -29,6 +32,18 @@ const shortValue = (value?: string) => {
   return `${value.slice(0, 20)}...${value.slice(-14)}`;
 };
 
+const emptyDiagnostics: RuntimeDiagnostics = {
+  camera: "not tested",
+  runtime: "not loaded",
+  mindarStart: "not started",
+  mindTarget: "not loaded",
+  mindCompilerVersion: "missing",
+  layers: "not loaded",
+  layersLoaded: "0",
+  imageTargetSrcMode: "not set",
+  targetFoundCount: "0",
+};
+
 export const ARTest = ({ projectId }: { projectId: string }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -36,14 +51,7 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
   const [project, setProject] = useState<ARProject | null>(null);
   const [mode, setMode] = useState<TestMode>("loading");
   const [status, setStatus] = useState("載入專案 AR 測試");
-  const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics>({
-    camera: "not tested",
-    runtime: "not loaded",
-    mindarStart: "not started",
-    mindTarget: "not loaded",
-    mindCompilerVersion: "missing",
-    layers: "not loaded",
-  });
+  const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics>(emptyDiagnostics);
   const [loadedAt, setLoadedAt] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -60,8 +68,8 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
   const loadProject = useCallback(async () => {
     clearStage();
     setMode("loading");
-    setStatus("正在從 Supabase 讀取專案");
-    patchDiagnostics({ mindarStart: "not started", mindTarget: "not loaded", layers: "not loaded" });
+    setStatus("正在從 Supabase 載入專案");
+    setDiagnostics(emptyDiagnostics);
 
     try {
       const stored = await projectRepository.getProject(projectId);
@@ -71,13 +79,13 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
       patchDiagnostics({ mindCompilerVersion: hydrated.mindCompilerVersion ?? "missing" });
       if (hasCurrentMindTarget(hydrated)) {
         setMode("idle");
-        setStatus("已讀到 .mind，請點 Start Project AR");
+        setStatus(".mind ready，請點 Start Project AR");
       } else if (hasAnyMindTarget(hydrated)) {
         setMode("missing-mind");
-        setStatus(`這個 .mind 不是 ${MIND_AR_COMPILER_VERSION} 產生，請回 Editor 重新產生 .mind`);
+        setStatus(`這份 .mind 不是 ${MIND_AR_COMPILER_VERSION} 產生，請回 Editor 重新產生`);
       } else {
         setMode("missing-mind");
-        setStatus("這個專案沒有 .mind，無法測試圖片追蹤");
+        setStatus("這個專案尚未產生 .mind");
       }
     } catch (error) {
       console.error(error);
@@ -140,17 +148,23 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
       ["runtime", diagnostics.runtime],
       ["mindTarget", diagnostics.mindTarget],
       ["mindCompilerVersion", diagnostics.mindCompilerVersion],
-      ["layers", diagnostics.layers],
+      ["imageTargetSrcMode", diagnostics.imageTargetSrcMode],
       ["mindarStart", diagnostics.mindarStart],
+      ["targetFoundCount", diagnostics.targetFoundCount],
+      ["layers", diagnostics.layers],
+      ["layersLoaded", diagnostics.layersLoaded],
       ["browser", navigator.userAgent],
     ],
     [
       diagnostics.camera,
+      diagnostics.imageTargetSrcMode,
       diagnostics.layers,
-      diagnostics.mindTarget,
+      diagnostics.layersLoaded,
       diagnostics.mindCompilerVersion,
+      diagnostics.mindTarget,
       diagnostics.mindarStart,
       diagnostics.runtime,
+      diagnostics.targetFoundCount,
       loadedAt,
       project?.mindTargetId,
       project?.mindTargetUrl,
@@ -187,6 +201,12 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
                 Start Project AR
               </button>
             )}
+            {project && (
+              <a className="viewer-panel-link" href={`/target/${project.id}`} target="_blank" rel="noreferrer">
+                <ExternalLink size={18} />
+                開啟乾淨 Trigger 圖
+              </a>
+            )}
             <button className="secondary" onClick={loadProject}>
               <RefreshCw size={20} />
               Reload
@@ -195,7 +215,7 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
               <Clipboard size={19} />
               {copied ? "Copied" : "Copy Debug"}
             </button>
-            <p>這頁會載入同一個 .mind，掃到 Trigger Image 後顯示 Editor 內設定的實際圖片與影片圖層。</p>
+            <p>這頁會掃描同一份 .mind，辨識成功後顯示 Editor 設定的專案圖層。</p>
           </div>
         )}
 
