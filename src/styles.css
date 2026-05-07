@@ -505,6 +505,16 @@ h1 {
   display: block;
 }
 
+.camera-test-video {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000000;
+}
+
 .viewer-hud,
 .viewer-bottom {
   position: absolute;
@@ -567,14 +577,17 @@ h1 {
   flex-wrap: wrap;
 }
 
-.viewer-bottom span {
+.viewer-bottom span,
+.viewer-bottom a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 34px;
   border-radius: 8px;
   padding: 0 10px;
+  color: #ffffff;
   background: rgba(10, 13, 18, 0.68);
+  text-decoration: none;
 }
 
 .viewer-start-panel {
@@ -678,6 +691,11 @@ h1 {
   gap: 12px;
 }
 
+.viewer-debug-heading div {
+  display: flex;
+  gap: 6px;
+}
+
 .viewer-debug-heading button {
   display: inline-flex;
   align-items: center;
@@ -693,6 +711,16 @@ h1 {
   display: grid;
   gap: 5px;
   margin: 0;
+}
+
+.viewer-debug-panel.compact {
+  right: auto;
+  bottom: 58px;
+  width: min(360px, calc(100% - 24px));
+  max-height: 190px;
+  overflow: auto;
+  margin: 0;
+  opacity: 0.84;
 }
 
 .viewer-debug-panel dl div {
@@ -734,6 +762,23 @@ h1 {
   width: fit-content;
   color: #93c5fd;
   text-decoration: none;
+}
+
+.viewer-debug-panel small {
+  color: #93a4b8;
+  line-height: 1.45;
+}
+
+.ar-test-stage::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.36;
+  pointer-events: none;
 }
 
 @media (max-width: 900px) {
