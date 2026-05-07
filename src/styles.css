@@ -689,6 +689,30 @@ h1 {
   font-size: 12px;
 }
 
+.viewer-debug-toggle {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(10, 13, 18, 0.56);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.viewer-debug-toggle.open {
+  color: #ffffff;
+  background: rgba(39, 137, 198, 0.82);
+}
+
 .viewer-debug-heading {
   display: flex;
   align-items: center;
@@ -772,6 +796,107 @@ h1 {
 .viewer-debug-panel small {
   color: #93a4b8;
   line-height: 1.45;
+}
+
+.recording-ui {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  bottom: 58px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.recording-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: rgba(20, 24, 32, 0.72);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.recording-badge span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ef2a1f;
+  box-shadow: 0 0 0 5px rgba(239, 42, 31, 0.18);
+}
+
+.record-button {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.34),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.92);
+  pointer-events: auto;
+}
+
+.record-button-ring {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 4px solid rgba(15, 23, 42, 0.2);
+  border-radius: 999px;
+}
+
+.record-button-ring span {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #e12d24;
+  transition:
+    width 160ms ease,
+    height 160ms ease,
+    border-radius 160ms ease;
+}
+
+.record-button.recording {
+  animation: recordPulse 1.3s ease-in-out infinite;
+}
+
+.record-button.recording .record-button-ring span {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+
+.viewer-bottom.live {
+  right: auto;
+  left: 50%;
+  bottom: 18px;
+  width: fit-content;
+  max-width: calc(100% - 128px);
+  margin: 0 auto;
+  opacity: 0.34;
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+@keyframes recordPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 .ar-test-stage::before {

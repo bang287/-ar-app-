@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Camera, Clipboard, ExternalLink, Layers, Play, RefreshCw, Smartphone, Video } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bug, Camera, Clipboard, ExternalLink, Layers, Play, RefreshCw, Smartphone, Video } from "lucide-react";
 import type { ARProject } from "../types/project";
 import { buildInfo } from "../buildInfo";
 import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "../ar/camera";
@@ -40,6 +40,16 @@ const formatBuildTime = (value: string) => {
 
 const isCompactDebugMode = (mode: ViewerMode) => mode === "starting" || mode === "tracking" || mode === "lost" || mode === "camera-test";
 
+const formatRecordingTime = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const remainingSeconds = Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${minutes}:${remainingSeconds}`;
+};
+
 const emptyDiagnostics: RuntimeDiagnostics = {
   camera: "not tested",
   runtime: "not loaded",
@@ -63,10 +73,14 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
   const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics>(emptyDiagnostics);
   const [loadedAt, setLoadedAt] = useState("");
   const [copiedDebug, setCopiedDebug] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
 
   const hasMindTarget = Boolean(project?.mindTargetUrl);
   const targetUrl = project ? `${window.location.origin}/target/${project.id}` : "";
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const liveMode = mode === "starting" || mode === "tracking" || mode === "lost" || mode === "camera-test";
 
   const patchDiagnostics = useCallback((patch: ProjectARDiagnostics) => {
     setDiagnostics((current) => ({ ...current, ...patch }));
@@ -108,6 +122,9 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     setStatus("正在從 Supabase 載入專案");
     setMindUrlCheck({ status: "unchecked", detail: "not checked" });
     setDiagnostics(emptyDiagnostics);
+    setShowDebug(false);
+    setIsRecording(false);
+    setRecordingSeconds(0);
     startedRef.current = false;
 
     try {
@@ -147,6 +164,18 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       cleanupRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isRecording) return;
+    const timer = window.setInterval(() => setRecordingSeconds((current) => current + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [isRecording]);
+
+  useEffect(() => {
+    if (liveMode) return;
+    setIsRecording(false);
+    setRecordingSeconds(0);
+  }, [liveMode]);
 
   const runCameraTest = async () => {
     if (!containerRef.current) return;
@@ -194,6 +223,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     }
 
     try {
+      setShowDebug(false);
       setMode("starting");
       const session = await startProjectMindARSession({
         container: containerRef.current,
@@ -278,6 +308,11 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     window.setTimeout(() => setCopiedDebug(false), 1200);
   };
 
+  const toggleRecording = () => {
+    setRecordingSeconds(0);
+    setIsRecording((current) => !current);
+  };
+
   return (
     <main className="viewer-shell">
       <div className="viewer-stage" ref={containerRef}>
@@ -356,30 +391,53 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
           </div>
         )}
 
-        <div className={`viewer-debug-panel ${isCompactDebugMode(mode) ? "compact" : ""}`}>
-          <div className="viewer-debug-heading">
-            <strong>Viewer Debug</strong>
-            <div>
-              <button onClick={copyDebug} title="Copy debug">
-                <Clipboard size={14} />
-              </button>
-              <button onClick={loadProject} title="Reload from Supabase">
-                <RefreshCw size={14} />
-              </button>
-            </div>
-          </div>
-          <dl>
-            {debugRows.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd className={label === ".mind URL" ? mindUrlCheck.status : undefined}>{value}</dd>
+        {liveMode && (
+          <div className="recording-ui">
+            {isRecording && (
+              <div className="recording-badge">
+                <span />
+                REC {formatRecordingTime(recordingSeconds)}
               </div>
-            ))}
-          </dl>
-          <small>如果 targetFoundCount 一直是 0，代表還沒有辨識到 Trigger Image；請用 /target 頁面的乾淨圖片測試。</small>
-        </div>
+            )}
+            <button className={`record-button ${isRecording ? "recording" : ""}`} onClick={toggleRecording} title={isRecording ? "停止錄影效果" : "開始錄影效果"}>
+              <span className="record-button-ring">
+                <span />
+              </span>
+            </button>
+          </div>
+        )}
 
-        <div className="viewer-bottom">
+        <button className={`viewer-debug-toggle ${showDebug ? "open" : ""}`} onClick={() => setShowDebug((current) => !current)}>
+          <Bug size={14} />
+          Debug
+        </button>
+
+        {showDebug && (
+          <div className={`viewer-debug-panel ${isCompactDebugMode(mode) ? "compact" : ""}`}>
+            <div className="viewer-debug-heading">
+              <strong>Viewer Debug</strong>
+              <div>
+                <button onClick={copyDebug} title="Copy debug">
+                  <Clipboard size={14} />
+                </button>
+                <button onClick={loadProject} title="Reload from Supabase">
+                  <RefreshCw size={14} />
+                </button>
+              </div>
+            </div>
+            <dl>
+              {debugRows.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd className={label === ".mind URL" ? mindUrlCheck.status : undefined}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <small>如果 targetFoundCount 一直是 0，代表還沒有辨識到 Trigger Image；請用 /target 頁面的乾淨圖片測試。</small>
+          </div>
+        )}
+
+        <div className={`viewer-bottom ${liveMode ? "live" : ""}`}>
           <span>
             <Smartphone size={16} /> iOS / Android
           </span>
