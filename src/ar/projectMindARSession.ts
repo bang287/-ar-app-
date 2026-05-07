@@ -1,4 +1,5 @@
 import type { ARProject } from "../types/project";
+import type * as THREE from "three";
 import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "./camera";
 import { loadMindARThree, type MindARThreeInstance, withTimeout } from "./mindRuntime";
 import { hasCurrentMindTarget, MIND_AR_COMPILER_VERSION } from "./mindVersion";
@@ -33,6 +34,10 @@ type ProjectARSessionOptions = {
 
 const VIEWER_DEPTH_BOOST = 2.8;
 const VIEWER_MINIMUM_DEPTH_STEP = 0.11;
+const TRACKING_POSITION_SMOOTHING = 0.22;
+const TRACKING_ROTATION_SMOOTHING = 0.18;
+const TRACKING_SCALE_SMOOTHING = 0.2;
+const TRACKING_LOST_HOLD_MS = 320;
 
 const disposeLayerMesh = (mesh: RuntimeLayerMesh) => {
   mesh.userData.video?.pause();
@@ -66,7 +71,11 @@ export const startProjectMindARSession = async ({
 
   let mindarThree: MindARThreeInstance | null = null;
   let meshes: RuntimeLayerMesh[] = [];
+  let stableGroup: THREE.Group | null = null;
   let targetVisible = false;
+  let firstStableFrame = true;
+  let lostAt = 0;
+  let pausedAfterLost = false;
   let targetFoundCount = 0;
   let layersPromise: Promise<RuntimeLayerMesh[]> | null = null;
 
@@ -74,6 +83,8 @@ export const startProjectMindARSession = async ({
     pauseLayerVideos(meshes);
     meshes.forEach(disposeLayerMesh);
     meshes = [];
+    stableGroup?.parent?.remove(stableGroup);
+    stableGroup = null;
 
     try {
       mindarThree?.renderer.setAnimationLoop(null);
@@ -92,7 +103,7 @@ export const startProjectMindARSession = async ({
       imageTargetSrcMode: "direct-url",
       targetFoundCount: "0",
       layersLoaded: "0",
-      depthMode: `${VIEWER_DEPTH_BOOST}x depth, min ${VIEWER_MINIMUM_DEPTH_STEP}`,
+      depthMode: `${VIEWER_DEPTH_BOOST}x depth, min ${VIEWER_MINIMUM_DEPTH_STEP}, smoothing on`,
     });
 
     onStatus?.("檢查手機相機權限");
@@ -119,6 +130,9 @@ export const startProjectMindARSession = async ({
 
     const { renderer, scene, camera } = mindarThree;
     const anchor = mindarThree.addAnchor(0);
+    stableGroup = new runtime.THREE.Group();
+    stableGroup.visible = false;
+    scene.add(stableGroup);
     const orderedLayers = [...project.layers].sort((left, right) => left.order - right.order);
     const ensureLayersLoaded = async () => {
       if (!layersPromise) {
@@ -136,7 +150,7 @@ export const startProjectMindARSession = async ({
           ),
         ).then((loadedMeshes) => {
           meshes = loadedMeshes.filter((mesh): mesh is RuntimeLayerMesh => Boolean(mesh));
-          meshes.forEach((mesh) => anchor.group.add(mesh));
+          meshes.forEach((mesh) => stableGroup?.add(mesh));
           onDiagnostics?.({ layers: `${meshes.length}/${project.layers.length} loaded`, layersLoaded: `${meshes.length}/${project.layers.length}` });
           return meshes;
         });
@@ -151,6 +165,9 @@ export const startProjectMindARSession = async ({
 
     anchor.onTargetFound = () => {
       targetVisible = true;
+      firstStableFrame = true;
+      pausedAfterLost = false;
+      if (stableGroup) stableGroup.visible = true;
       targetFoundCount += 1;
       onDiagnostics?.({ targetFoundCount: String(targetFoundCount) });
       void ensureLayersLoaded().catch((error) => {
@@ -163,7 +180,7 @@ export const startProjectMindARSession = async ({
     anchor.onTargetLost = () => {
       onStatus?.("追蹤暫停，請重新對準 Trigger Image");
       targetVisible = false;
-      pauseLayerVideos(meshes);
+      lostAt = performance.now();
       onTargetLost?.();
     };
 
@@ -172,7 +189,30 @@ export const startProjectMindARSession = async ({
     await withTimeout(mindarThree.start(), startTimeoutMs, `MindAR start timeout after ${Math.round(startTimeoutMs / 1000)} seconds`);
     onDiagnostics?.({ mindarStart: "resolved" });
 
-    renderer.setAnimationLoop(() => renderer.render(scene, camera));
+    renderer.setAnimationLoop(() => {
+      if (stableGroup) {
+        if (targetVisible) {
+          if (firstStableFrame) {
+            stableGroup.position.copy(anchor.group.position);
+            stableGroup.quaternion.copy(anchor.group.quaternion);
+            stableGroup.scale.copy(anchor.group.scale);
+            firstStableFrame = false;
+          } else {
+            stableGroup.position.lerp(anchor.group.position, TRACKING_POSITION_SMOOTHING);
+            stableGroup.quaternion.slerp(anchor.group.quaternion, TRACKING_ROTATION_SMOOTHING);
+            stableGroup.scale.lerp(anchor.group.scale, TRACKING_SCALE_SMOOTHING);
+          }
+          stableGroup.visible = true;
+        } else if (performance.now() - lostAt > TRACKING_LOST_HOLD_MS) {
+          stableGroup.visible = false;
+          if (!pausedAfterLost) {
+            pauseLayerVideos(meshes);
+            pausedAfterLost = true;
+          }
+        }
+      }
+      renderer.render(scene, camera);
+    });
     onStatus?.("相機已啟動，請掃描 Trigger Image");
 
     return { stop };

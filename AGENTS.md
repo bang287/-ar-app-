@@ -4,25 +4,26 @@
 
 ## 專案背景
 
-這是一個影像觸發式 WebAR 多圖層平台原型，品牌目前叫「承氣」。
+這是「承氣」WebAR 設計平台原型。
 
 核心功能：
 
-- 作品庫首頁 `/`
-- AR 編輯器 `/editor/:projectId`
-- 手機 Viewer `/viewer/:projectId`
-- 乾淨 Trigger Image 頁 `/target/:projectId`
-- AR 測試頁 `/ar-test/:projectId`
-- MindAR smoke test `/mindar-smoke-test`
-- Supabase 儲存 project JSON 和素材
-- Netlify 部署 production 網站
+- 後台作品庫 `/`，需要登入。
+- 後台登入 `/login`，使用 Supabase Auth email/password。
+- AR 編輯器 `/editor/:projectId`，需要登入。
+- 手機 Viewer `/viewer/:projectId`，公開，不需要登入。
+- 乾淨 Trigger Image 頁 `/target/:projectId`，公開。
+- AR 測試頁 `/ar-test/:projectId`，公開。
+- MindAR smoke test `/mindar-smoke-test`，公開。
+- Supabase 儲存 project JSON 和素材。
+- Netlify 部署 production 網站。
 
 主要技術：
 
 - Vite + React + TypeScript
 - Three.js
 - MindAR image tracking
-- Supabase
+- Supabase Auth / Database / Storage
 - Netlify Functions
 - Express local API fallback
 
@@ -58,6 +59,22 @@ Remove-Item "C:\path\to\file.txt"
 - 不要更改無關檔案。
 - 不要安裝新套件，除非功能確實需要；安裝後要跑 `npm audit --audit-level=moderate`。
 
+## 登入與權限
+
+目前登入策略：
+
+- 使用者帳號由管理員在 Supabase Authentication 建立。
+- 不開放前台註冊。
+- 後台所有登入使用者共用同一批專案。
+- Viewer / Target 公開可讀，方便手機掃描。
+
+Supabase RLS 目標：
+
+- `anon` 只能 select folders/projects/storage assets。
+- `authenticated` 可以 insert/update/delete folders/projects，也可以上傳素材。
+
+如果修改 auth、RLS、路由保護，請同步更新 `README.md` 和 `supabase/schema.sql`。
+
 ## 常用指令
 
 ```powershell
@@ -77,7 +94,9 @@ tsc --noEmit && vite build
 
 ## 主要檔案
 
-- `src/App.tsx`：路由入口。
+- `src/App.tsx`：路由與後台登入 guard。
+- `src/auth/AuthContext.tsx`：Supabase Auth session、登入、登出。
+- `src/components/Login.tsx`：後台登入頁。
 - `src/components/Gallery.tsx`：作品庫。
 - `src/components/Editor.tsx`：3D AR 編輯器。
 - `src/components/Viewer.tsx`：手機掃描 Viewer 和錄影功能。
@@ -91,9 +110,10 @@ tsc --noEmit && vite build
 - `src/three/chromaKeyMaterial.ts`：Editor 透明去背 shader。
 - `src/three/layerMesh.ts`：Editor 圖層 mesh。
 - `src/ar/runtimeLayerMesh.ts`：Viewer 圖層 mesh。
-- `src/ar/projectMindARSession.ts`：MindAR 啟動和追蹤 session。
+- `src/ar/projectMindARSession.ts`：MindAR 啟動、追蹤與穩定化。
 - `src/ar/mindRuntime.ts`：MindAR runtime 載入。
 - `src/ar/mindCompiler.ts`：`.mind` 產生邏輯。
+- `supabase/schema.sql`：Supabase DB、RLS、Storage policies。
 - `netlify/functions/compile-mind-target.ts`：Netlify Function。
 - `server/index.ts`：本機 API fallback。
 - `docs/HOW_IT_WORKS.md`：系統運作說明。
@@ -106,6 +126,7 @@ tsc --noEmit && vite build
 - 正式 demo 優先用 Netlify URL。
 - Viewer 必須有目前版本的 `.mind` 才能掃描。
 - 掃描時要掃 `/target/:projectId` 的乾淨 Trigger Image，不要掃 Editor 畫布截圖。
+- AR 穩定化在 `src/ar/projectMindARSession.ts`，不要重寫影像追蹤引擎。
 
 ## 錄影功能注意事項
 
@@ -151,12 +172,14 @@ git status --short
 
 如果改了核心流程，請同步更新：
 
+- `README.md`
 - `docs/HOW_IT_WORKS.md`
 - 本檔案 `AGENTS.md`
 
 尤其是：
 
 - 新路由
+- 登入/權限/RLS
 - 新資料欄位
 - Supabase schema 改動
 - AR 掃描流程

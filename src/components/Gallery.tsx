@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, Download, Edit3, FolderPlus, Menu, MoreVertical, Play, Plus, Search, Sparkles, Trash2, Type } from "lucide-react";
+import { Box, Download, Edit3, FolderPlus, LogOut, Menu, MoreVertical, Play, Plus, Search, Sparkles, Trash2, Type } from "lucide-react";
+import { useAuth } from "../auth/AuthContext";
 import type { ARFolder, ARProject } from "../types/project";
 import { projectRepository } from "../data/projectRepository";
+
+const seasonTags = ["立春", "春分", "芒種", "白露", "霜降", "冬至"];
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("zh-Hant", {
@@ -20,7 +23,7 @@ const downloadArtworkJson = (project: ARProject) => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${project.name.replace(/[^\w.-]+/g, "-") || "artwork"}-${project.id}.json`;
+  anchor.download = `${project.name.replace(/[^\w.-]+/g, "-") || "chengqi-project"}-${project.id}.json`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
@@ -28,13 +31,14 @@ const downloadArtworkJson = (project: ARProject) => {
 };
 
 export const Gallery = () => {
+  const { user, signOut } = useAuth();
   const [folders, setFolders] = useState<ARFolder[]>([]);
   const [projects, setProjects] = useState<ARProject[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(null);
   const [openMenuFolderId, setOpenMenuFolderId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("載入作品中");
+  const [status, setStatus] = useState("正在載入作品");
 
   const load = async () => {
     const [nextFolders, nextProjects] = await Promise.all([projectRepository.listFolders(), projectRepository.listProjects()]);
@@ -67,21 +71,21 @@ export const Gallery = () => {
   );
 
   const createFolder = async () => {
-    const name = window.prompt("資料夾名稱", "New Folder");
+    const name = window.prompt("請輸入資料夾名稱", "New Folder");
     if (!name) return;
     await projectRepository.createFolder(name);
     await load();
   };
 
   const createArtwork = async () => {
-    const name = window.prompt("AR 作品名稱", "New AR Artwork");
+    const name = window.prompt("請輸入 AR 作品名稱", "New AR Artwork");
     if (!name) return;
     const project = await projectRepository.createProject(name, selectedFolder ?? undefined);
     window.location.href = `/editor/${project.id}`;
   };
 
   const deleteArtwork = async (project: ARProject) => {
-    const confirmed = window.confirm(`確定刪除作品「${project.name}」？這只會刪除單一作品資料，不會批量刪除檔案。`);
+    const confirmed = window.confirm(`確定要刪除「${project.name}」嗎？這只會刪除單一作品資料，不會批量刪除其他作品。`);
     if (!confirmed) return;
     await projectRepository.deleteProject(project.id);
     setOpenMenuProjectId(null);
@@ -89,7 +93,7 @@ export const Gallery = () => {
   };
 
   const renameFolder = async (folder: ARFolder) => {
-    const name = window.prompt("重新命名資料夾", folder.name);
+    const name = window.prompt("請輸入新的資料夾名稱", folder.name);
     if (!name || name === folder.name) return;
     await projectRepository.updateFolder(folder.id, name);
     setOpenMenuFolderId(null);
@@ -99,7 +103,7 @@ export const Gallery = () => {
   const publishFolder = async (folder: ARFolder) => {
     const folderProjects = projects.filter((project) => project.folderId === folder.id);
     if (folderProjects.length === 0) {
-      setStatus("此資料夾沒有作品可發布");
+      setStatus("這個資料夾目前沒有作品可以發布");
       setOpenMenuFolderId(null);
       return;
     }
@@ -110,12 +114,17 @@ export const Gallery = () => {
   };
 
   const deleteFolder = async (folder: ARFolder) => {
-    const confirmed = window.confirm(`確定刪除資料夾「${folder.name}」？作品不會被刪除，只會移除分類。`);
+    const confirmed = window.confirm(`確定要刪除資料夾「${folder.name}」嗎？作品不會被刪除，只會移除分類。`);
     if (!confirmed) return;
     await projectRepository.deleteFolder(folder.id);
     if (selectedFolder === folder.id) setSelectedFolder(null);
     setOpenMenuFolderId(null);
     await load();
+  };
+
+  const logout = async () => {
+    await signOut();
+    window.location.href = "/login";
   };
 
   return (
@@ -131,26 +140,44 @@ export const Gallery = () => {
         </div>
         <label className="search-box">
           <Search size={17} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋作品" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋作品、節氣或資料夾" />
         </label>
         <div className="gallery-actions">
           <span>{status}</span>
           <button onClick={createArtwork}>
             <Plus size={17} />
-            Create Artwork
+            建立作品
           </button>
           <a className="discover-button" href={projects[0] ? `/viewer/${projects[0].id}` : "/"}>
-            Discover
+            掃描展示
           </a>
+          <div className="account-pill">
+            <span>{user?.email ?? "本機模式"}</span>
+            <button onClick={logout} title="登出">
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </header>
 
+      <section className="season-banner">
+        <div>
+          <span>二十四節氣工作台</span>
+          <h1>用花、影像與時間設計自己的 AR 作品</h1>
+        </div>
+        <div className="season-tags" aria-label="節氣標籤">
+          {seasonTags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+      </section>
+
       <section className="gallery-content">
         <div className="gallery-section-heading">
-          <h1>Folders</h1>
+          <h1>資料夾</h1>
           <button onClick={createFolder}>
             <FolderPlus size={18} />
-            Add New
+            新增資料夾
           </button>
         </div>
         <div className="folder-row">
@@ -170,15 +197,15 @@ export const Gallery = () => {
                   <div className="folder-action-menu">
                     <button onClick={() => renameFolder(folder)}>
                       <Type size={18} />
-                      Rename
+                      重新命名
                     </button>
                     <button onClick={() => publishFolder(folder)}>
                       <Box size={18} />
-                      Publish as WebAR
+                      發布為 WebAR
                     </button>
                     <button className="danger" onClick={() => deleteFolder(folder)}>
                       <Trash2 size={18} />
-                      Delete
+                      刪除資料夾
                     </button>
                   </div>
                 )}
@@ -188,32 +215,32 @@ export const Gallery = () => {
         </div>
 
         <div className="gallery-section-heading art-heading">
-          <h1>Artworks</h1>
+          <h1>作品</h1>
           <button onClick={createArtwork}>
             <Sparkles size={18} />
-            New Project
+            新作品
           </button>
         </div>
         <div className="artwork-grid">
           {filteredProjects.length === 0 && (
             <div className="empty-gallery">
-              <p>目前沒有作品。建立 AR project 後，可以上傳 Trigger Image、圖層並產生手機掃描頁。</p>
-              <button onClick={createArtwork}>Create Artwork</button>
+              <p>目前沒有符合條件的作品。建立一個 AR project，先上傳 Trigger Image，再加入圖片或影片圖層。</p>
+              <button onClick={createArtwork}>建立作品</button>
             </div>
           )}
           {filteredProjects.map((project) => (
             <article className="artwork-card" key={project.id}>
               <a className="artwork-cover" href={`/editor/${project.id}`}>
-                {project.thumbnailUrl ? <img src={project.thumbnailUrl} alt={project.name} /> : <div className="placeholder-cover">WebAR</div>}
+                {project.thumbnailUrl ? <img src={project.thumbnailUrl} alt={project.name} /> : <div className="placeholder-cover">承氣 AR</div>}
                 <span className="webar-tag">WebAR</span>
               </a>
               <div className="artwork-stats">
                 <div>
-                  <span>Recognition</span>
+                  <span>辨識品質</span>
                   <strong>{stars(project.recognitionScore)}</strong>
                 </div>
                 <div>
-                  <span>Views / Month</span>
+                  <span>本月觀看</span>
                   <strong>{project.viewsMonth}</strong>
                 </div>
               </div>
@@ -233,19 +260,19 @@ export const Gallery = () => {
                     <div className="artwork-menu">
                       <a href={`/editor/${project.id}`}>
                         <Edit3 size={18} />
-                        Edit artwork
+                        編輯作品
                       </a>
                       <a href={`/viewer/${project.id}`}>
                         <Box size={18} />
-                        Manage WebAR
+                        檢視 WebAR
                       </a>
                       <button onClick={() => downloadArtworkJson(project)}>
                         <Download size={18} />
-                        Download artwork
+                        下載 project JSON
                       </button>
                       <button className="danger" onClick={() => deleteArtwork(project)}>
                         <Trash2 size={18} />
-                        Delete artwork
+                        刪除作品
                       </button>
                     </div>
                   )}

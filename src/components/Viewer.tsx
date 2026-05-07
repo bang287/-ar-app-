@@ -143,13 +143,13 @@ const findArCanvas = (stage: HTMLElement, compositeCanvas: HTMLCanvasElement) =>
   Array.from(stage.querySelectorAll("canvas")).find((canvas) => canvas !== compositeCanvas && canvas.width > 0 && canvas.height > 0) ?? null;
 
 const makeRecordingFileName = (projectName?: string, extension: "mp4" | "webm" = "webm") => {
-  const safeName = (projectName || "arspace")
+  const safeName = (projectName || "chengqi-ar")
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 42);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${safeName || "arspace"}-${stamp}.${extension}`;
+  return `${safeName || "chengqi-ar"}-${stamp}.${extension}`;
 };
 
 const downloadBlob = (blob: Blob, fileName: string) => {
@@ -419,7 +419,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
 
       try {
         if (shareNavigator.share && shareNavigator.canShare?.({ files: [file] })) {
-          await shareNavigator.share({ files: [file], title: `${project?.name ?? "ARSPACE"} 錄影` });
+          await shareNavigator.share({ files: [file], title: `${project?.name ?? "承氣 AR"} 錄影` });
           setStatus("影片已產生，可在手機分享面板儲存");
         } else {
           downloadBlob(blob, fileName);

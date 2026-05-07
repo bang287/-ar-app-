@@ -1,6 +1,6 @@
-# 承氣 WebAR Editor
+# 承氣 WebAR 設計平台
 
-承氣是一個影像觸發式 WebAR 多圖層原型平台。使用者可以建立自己的 AR 專案，上傳 Trigger Image，新增多個圖片/影片圖層，在 3D 編輯器裡調整位置、旋轉、縮放、深度、透明度與色鍵去背，最後用手機瀏覽器掃描圖片顯示 AR 效果。
+承氣是一個影像觸發式 WebAR 多圖層平台原型。後台使用帳號密碼登入後，可以建立 AR 專案、上傳 Trigger Image、新增圖片/影片圖層、調整 3D 空間、設定透明去背，並用手機 Viewer 掃描圖片顯示 AR 效果。
 
 Production site:
 
@@ -8,48 +8,41 @@ Production site:
 https://chengqi-ar-design-platform.netlify.app
 ```
 
-更完整的架構與程式說明請看：
+## 核心功能
 
-- [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)
-- [AGENTS.md](AGENTS.md)
+- 後台登入：使用 Supabase Auth email/password，未登入不能進作品庫與 Editor。
+- 公開 Viewer：`/viewer/:projectId` 和 `/target/:projectId` 不需要登入，手機可直接掃描。
+- 作品庫：資料夾分類、作品卡、建立/刪除/下載 project JSON。
+- 3D Editor：Three.js + TransformControls 編輯 position、rotation、scale、Z 深度。
+- 多圖層：支援圖片/影片、多檔上傳、排序、顯示/隱藏、重新命名。
+- Trigger Image：上傳後產生 MindAR `.mind` target。
+- 背景透明化：每層支援 chroma key 顏色、threshold、softness。
+- 手機 AR：MindAR image tracking 掃描 Trigger Image 後顯示平台設定的圖層效果。
+- 穩定化：Viewer 會對 AR anchor 做平滑處理，降低手機掃描時的抖動。
+- 錄影：手機端可錄製相機背景與 AR 圖層合成畫面。
 
-## 功能
+## 技術
 
-- 作品庫首頁：可建立資料夾和 AR 作品。
-- 多圖層 Editor：支援圖片/影片圖層、多檔上傳、排序、顯示/隱藏、刪除和重新命名。
-- 3D Transform 編輯：使用 Three.js + TransformControls 調整 position、rotation、scale 和 Z 深度。
-- Trigger Image：上傳觸發圖片並產生 MindAR `.mind` target。
-- 背景透明化：每個圖層可設定 chroma key 顏色、threshold、softness。
-- 時間軸：每個圖層支援 start time、end time 和 loop。
-- 手機 Viewer：使用 MindAR image tracking 開相機掃描 Trigger Image。
-- 側面圖層深度：Viewer 會加強圖層 Z 深度，手機斜看時能看出前後層次。
-- 真錄影：手機端可錄製相機畫面加 AR 圖層，並分享或下載影片。
-- Supabase 後端：保存 project JSON 與素材，並保留本機 API fallback。
-- Netlify 部署：支援 SPA route 和 Netlify Functions。
-
-## 技術棧
-
-- Vite
-- React
-- TypeScript
+- Vite + React + TypeScript
 - Three.js
-- MindAR
-- Supabase
+- MindAR image tracking
+- Supabase Auth / Database / Storage
 - Netlify Functions
 - Express local API fallback
 
-## 主要路由
+## 路由
 
 ```text
-/                         作品庫首頁
-/editor/:projectId        AR 專案編輯器
-/viewer/:projectId        手機 AR 掃描 Viewer
-/target/:projectId        乾淨 Trigger Image 頁
-/ar-test/:projectId       專案 AR 測試頁
-/mindar-smoke-test        MindAR runtime 測試頁
+/                         後台作品庫，需要登入
+/login                    後台登入
+/editor/:projectId        AR 編輯器，需要登入
+/viewer/:projectId        手機 AR Viewer，公開
+/target/:projectId        乾淨 Trigger Image，公開
+/ar-test/:projectId       專案 AR 測試頁，公開
+/mindar-smoke-test        MindAR runtime 測試頁，公開
 ```
 
-## 快速開始
+## 開發
 
 安裝依賴：
 
@@ -72,130 +65,75 @@ VITE_SUPABASE_BUCKET=ar-assets
 npm run dev
 ```
 
-前端預設在：
+本機網址：
 
 ```text
 http://localhost:5173
 ```
 
-## 手機 Demo
-
-手機不能直接打電腦的 `localhost:5173`，因為手機的 localhost 是手機自己。
-
-建議方式：
-
-1. 使用 Netlify production URL。
-2. 或本機使用 HTTPS tunnel：
+手機不能使用電腦上的 `localhost:5173`。手機測試請使用 Netlify HTTPS 網址，或執行：
 
 ```bash
 npm run tunnel
 ```
 
-手機測試流程：
+## Supabase 設定
 
-1. 在桌機開 `/editor/:projectId`。
-2. 上傳 Trigger Image。
-3. 等 Editor 顯示 `.mind ready`。
-4. 新增圖片/影片圖層並調整 3D 位置。
-5. 手機開 `/viewer/:projectId`。
-6. 點 `Start AR`。
-7. 用另一個螢幕或列印紙開 `/target/:projectId` 的乾淨 Trigger Image。
-8. 掃描後顯示多圖層 AR 效果。
-
-## 錄影
-
-Viewer 的紅色錄影按鈕會錄製：
-
-- 手機相機背景。
-- MindAR WebGL AR 圖層。
-- REC HUD。
-
-停止錄影後會優先使用手機 Web Share API 分享/儲存影片；不支援時會自動下載影片檔。
-
-限制：
-
-- Android Chrome 通常最穩。
-- iOS Safari 支援度和 iOS 版本有關。
-- 若跨網域素材沒有正確 CORS，瀏覽器可能禁止錄影合成，但 AR 播放仍可繼續。
-
-## Build
-
-```bash
-npm run build
-```
-
-安全檢查：
-
-```bash
-npm audit --audit-level=moderate
-```
-
-## Netlify
-
-`netlify.toml` 已設定：
-
-- build command：`npm run build`
-- publish directory：`dist`
-- functions directory：`netlify/functions`
-- SPA redirect：所有路由導回 `index.html`
-- Viewer / Editor / Target 頁的 no-cache header
-
-目前 Netlify site id：
-
-```text
-97fd1618-904f-4d8d-bcda-22a92e14477b
-```
-
-## Supabase
-
-需要設定：
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_SUPABASE_BUCKET`
-
-Storage bucket 預設：
+1. 在 Supabase Authentication 建立小組成員帳號。
+2. 到 SQL Editor 執行 `supabase/schema.sql`。
+3. 確認 Storage bucket 是 public：
 
 ```text
 ar-assets
 ```
 
-如果使用 Netlify Function 或後端編譯 `.mind`，service role key 只能放在 Netlify/Supabase 的環境變數，不能提交到 GitHub。
+新版 RLS 規則：
 
-## 專案結構
+- `anon`：只能讀取 folders、projects 和 `ar-assets`，供 Viewer 公開掃描。
+- `authenticated`：可新增、修改、刪除後台資料與上傳素材。
+
+Service role key 只能放在 Netlify / Supabase 後端環境變數，不能提交到 GitHub。
+
+## Netlify
+
+`netlify.toml` 設定：
+
+- build command：`npm run build`
+- publish directory：`dist`
+- functions directory：`netlify/functions`
+- SPA redirect：支援直接打開 `/editor/:id`、`/viewer/:id`
+- no-cache headers：避免手機拿到舊 bundle
+
+目前 site id：
 
 ```text
-src/
-  App.tsx                         route switch
-  components/
-    Gallery.tsx                   作品庫首頁
-    Editor.tsx                    3D 編輯器
-    Viewer.tsx                    手機 AR Viewer + 錄影
-    TargetImagePage.tsx           乾淨 Trigger Image
-    ARTest.tsx                    專案 AR 測試頁
-    MindARSmokeTest.tsx           MindAR runtime 測試
-  ar/
-    projectMindARSession.ts       MindAR 啟動與追蹤流程
-    runtimeLayerMesh.ts           Viewer 圖層 mesh
-    mindRuntime.ts                MindAR runtime 載入
-    mindCompiler.ts               .mind compiler fallback
-  data/
-    projectRepository.ts          資料存取入口
-    supabaseProjectRepository.ts  Supabase repository
-    hydrateRuntimeProject.ts      asset id 轉 runtime URL
-  three/
-    layerMesh.ts                  Editor 圖層 mesh
-    chromaKeyMaterial.ts          chroma key shader
-  types/
-    project.ts                    Project / Layer 型別
+97fd1618-904f-4d8d-bcda-22a92e14477b
 ```
 
-## 後續可加強
+## 驗證
 
-- 更穩定的後端 `.mind` compiler。
-- 登入與使用者權限。
-- 專案版本管理。
-- 3D model / audio / text layer。
-- 色鍵吸管工具。
-- 錄影倒數、暫停、重錄。
-- 更完整的作品發布與分享頁。
+```bash
+npm run build
+npm audit --audit-level=moderate
+```
+
+## 主要檔案
+
+```text
+src/App.tsx                         route guard 與路由入口
+src/auth/AuthContext.tsx            Supabase Auth 狀態
+src/components/Login.tsx            後台登入頁
+src/components/Gallery.tsx          作品庫首頁
+src/components/Editor.tsx           3D 編輯器
+src/components/Viewer.tsx           手機 AR Viewer + 錄影
+src/ar/projectMindARSession.ts      MindAR 啟動、追蹤與穩定化
+src/ar/runtimeLayerMesh.ts          Viewer 圖層 mesh
+src/data/projectRepository.ts       資料存取入口
+src/data/supabaseProjectRepository.ts Supabase repository
+supabase/schema.sql                 DB / RLS / Storage policy
+```
+
+## 文件
+
+- [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)
+- [AGENTS.md](AGENTS.md)
