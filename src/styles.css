@@ -173,6 +173,11 @@ h1 {
   background: #fff5f5;
 }
 
+.mind-rebuild-button {
+  width: fit-content;
+  margin-top: 4px;
+}
+
 .upload-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -779,6 +784,13 @@ h1 {
   background-size: 32px 32px;
   opacity: 0.36;
   pointer-events: none;
+}
+
+.smoke-target-thumb {
+  width: min(190px, 80%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: #ffffff;
 }
 
 @media (max-width: 900px) {

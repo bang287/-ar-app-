@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Camera, Clipboard, Layers, RefreshCw } from "lucide-react";
 import { buildInfo } from "../buildInfo";
 import { startProjectMindARSession, type ProjectARDiagnostics } from "../ar/projectMindARSession";
+import { hasAnyMindTarget, hasCurrentMindTarget, MIND_AR_COMPILER_VERSION } from "../ar/mindVersion";
 import { projectRepository } from "../data/projectRepository";
 import { hydrateRuntimeProject } from "../data/hydrateRuntimeProject";
 import type { ARProject } from "../types/project";
@@ -12,6 +13,7 @@ type RuntimeDiagnostics = {
   runtime: string;
   mindarStart: string;
   mindTarget: string;
+  mindCompilerVersion: string;
   layers: string;
 };
 
@@ -39,6 +41,7 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
     runtime: "not loaded",
     mindarStart: "not started",
     mindTarget: "not loaded",
+    mindCompilerVersion: "missing",
     layers: "not loaded",
   });
   const [loadedAt, setLoadedAt] = useState("");
@@ -65,9 +68,13 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
       const hydrated = await hydrateRuntimeProject(stored);
       setProject(hydrated);
       setLoadedAt(new Date().toLocaleString("zh-Hant", { hour12: false }));
-      if (hydrated.mindTargetUrl) {
+      patchDiagnostics({ mindCompilerVersion: hydrated.mindCompilerVersion ?? "missing" });
+      if (hasCurrentMindTarget(hydrated)) {
         setMode("idle");
         setStatus("已讀到 .mind，請點 Start Project AR");
+      } else if (hasAnyMindTarget(hydrated)) {
+        setMode("missing-mind");
+        setStatus(`這個 .mind 不是 ${MIND_AR_COMPILER_VERSION} 產生，請回 Editor 重新產生 .mind`);
       } else {
         setMode("missing-mind");
         setStatus("這個專案沒有 .mind，無法測試圖片追蹤");
@@ -132,6 +139,7 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
       ["camera", diagnostics.camera],
       ["runtime", diagnostics.runtime],
       ["mindTarget", diagnostics.mindTarget],
+      ["mindCompilerVersion", diagnostics.mindCompilerVersion],
       ["layers", diagnostics.layers],
       ["mindarStart", diagnostics.mindarStart],
       ["browser", navigator.userAgent],
@@ -140,6 +148,7 @@ export const ARTest = ({ projectId }: { projectId: string }) => {
       diagnostics.camera,
       diagnostics.layers,
       diagnostics.mindTarget,
+      diagnostics.mindCompilerVersion,
       diagnostics.mindarStart,
       diagnostics.runtime,
       loadedAt,

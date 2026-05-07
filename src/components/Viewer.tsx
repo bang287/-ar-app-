@@ -4,6 +4,7 @@ import type { ARProject } from "../types/project";
 import { buildInfo } from "../buildInfo";
 import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "../ar/camera";
 import { startProjectMindARSession, type ProjectARDiagnostics } from "../ar/projectMindARSession";
+import { hasAnyMindTarget, hasCurrentMindTarget, MIND_AR_COMPILER_VERSION } from "../ar/mindVersion";
 import { withTimeout } from "../ar/mindRuntime";
 import { projectRepository } from "../data/projectRepository";
 import { hydrateRuntimeProject } from "../data/hydrateRuntimeProject";
@@ -18,6 +19,7 @@ type RuntimeDiagnostics = {
   runtime: string;
   mindarStart: string;
   mindTarget: string;
+  mindCompilerVersion: string;
   layers: string;
 };
 
@@ -48,6 +50,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
     runtime: "not loaded",
     mindarStart: "not started",
     mindTarget: "not loaded",
+    mindCompilerVersion: "missing",
     layers: "not loaded",
   });
   const [loadedAt, setLoadedAt] = useState("");
@@ -105,9 +108,13 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       setLoadedAt(new Date().toLocaleString("zh-Hant", { hour12: false }));
       await checkMindUrl(hydrated.mindTargetUrl);
 
-      if (hydrated.mindTargetUrl) {
+      patchDiagnostics({ mindCompilerVersion: hydrated.mindCompilerVersion ?? "missing" });
+      if (hasCurrentMindTarget(hydrated)) {
         setStatus(".mind ready，請點 Start AR");
         setMode("idle");
+      } else if (hasAnyMindTarget(hydrated)) {
+        setStatus(`這個 .mind 不是 ${MIND_AR_COMPILER_VERSION} 產生，請回 Editor 重新產生 .mind`);
+        setMode("waiting-mind");
       } else {
         setStatus("尚未附加 .mind，請回 Editor 等到 .mind ready");
         setMode("waiting-mind");
@@ -225,6 +232,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       ["camera", diagnostics.camera],
       ["runtime", diagnostics.runtime],
       ["mindTarget", diagnostics.mindTarget],
+      ["mindCompilerVersion", diagnostics.mindCompilerVersion],
       ["layers", diagnostics.layers],
       ["mindarStart", diagnostics.mindarStart],
       ["triggerImageId", shortValue(project?.triggerImageId)],
@@ -236,6 +244,7 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
       diagnostics.camera,
       diagnostics.layers,
       diagnostics.mindTarget,
+      diagnostics.mindCompilerVersion,
       diagnostics.mindarStart,
       diagnostics.runtime,
       loadedAt,

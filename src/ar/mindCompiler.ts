@@ -1,66 +1,20 @@
+import { MIND_AR_COMPILER_VERSION } from "./mindVersion";
+
 type MindCompiler = {
   compileImageTargets: (images: HTMLImageElement[], onProgress?: (progress: number) => void) => Promise<unknown>;
   exportData: () => Promise<ArrayBuffer>;
 };
 
-type MindARCompilerGlobal = {
-  Compiler: new () => MindCompiler;
+type MindAREsmModule = {
+  Compiler?: new () => MindCompiler;
 };
 
-const compilerScriptUrls = [
-  "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/dist/mindar-image.prod.js",
-  "https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image.prod.js",
-  "https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js",
-  "https://cdn.jsdelivr.net/npm/mind-ar@1.1.3/dist/mindar-image.prod.js",
-  "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@0.4.2/dist/mindar.prod-min.js",
-];
+const compilerModuleUrl = "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js";
 
-const getMindAR = () => (window as Window & { MINDAR?: MindARCompilerGlobal }).MINDAR;
-
-const loadScript = (url: string) =>
-  new Promise<void>((resolve, reject) => {
-    const existingScript = Array.from(document.querySelectorAll<HTMLScriptElement>("script[data-mindar-compiler-src]")).find(
-      (script) => script.dataset.mindarCompilerSrc === url,
-    );
-    if (existingScript) {
-      if (existingScript.dataset.loaded === "true") {
-        resolve();
-        return;
-      }
-      existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener("error", () => reject(new Error(`Unable to load MindAR compiler script: ${url}`)), { once: true });
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = url;
-    script.async = true;
-    script.dataset.mindarCompilerSrc = url;
-    script.onload = () => {
-      script.dataset.loaded = "true";
-      resolve();
-    };
-    script.onerror = () => reject(new Error(`Unable to load MindAR compiler script: ${url}`));
-    document.head.appendChild(script);
-  });
-
-const loadMindARCompilerScript = async () => {
-  const existing = getMindAR();
-  if (existing?.Compiler) return existing;
-
-  const errors: string[] = [];
-  for (const url of compilerScriptUrls) {
-    try {
-      await loadScript(url);
-      const mindar = getMindAR();
-      if (mindar?.Compiler) return mindar;
-      errors.push(`${url} loaded without Compiler API`);
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  throw new Error(`MindAR Compiler API unavailable. ${errors.join(" | ")}`);
+const loadMindARCompiler = async () => {
+  const loaded = (await import(/* @vite-ignore */ compilerModuleUrl)) as MindAREsmModule;
+  if (!loaded.Compiler) throw new Error("MindAR 1.2.5 compiler loaded without Compiler export");
+  return loaded.Compiler;
 };
 
 const loadImageFromFile = (file: File) =>
@@ -78,16 +32,38 @@ const loadImageFromFile = (file: File) =>
     image.src = url;
   });
 
+const normalizeImage = async (source: HTMLImageElement) => {
+  const maxSide = 1024;
+  const scale = Math.min(1, maxSide / Math.max(source.naturalWidth || source.width, source.naturalHeight || source.height));
+  if (scale >= 1) return source;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round((source.naturalWidth || source.width) * scale));
+  canvas.height = Math.max(1, Math.round((source.naturalHeight || source.height) * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return source;
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to normalize trigger image for .mind compilation"));
+    image.src = canvas.toDataURL("image/jpeg", 0.92);
+  });
+};
+
 const mindFileName = (fileName: string) => {
   const base = fileName.replace(/\.[^.]+$/, "").replace(/[^\w.-]+/g, "-") || "target";
   return `${base}.mind`;
 };
 
 export const compileMindTarget = async (file: File, onProgress?: (progress: number) => void) => {
-  const mindar = await loadMindARCompilerScript();
-  const image = await loadImageFromFile(file);
-  const compiler = new mindar.Compiler();
+  const Compiler = await loadMindARCompiler();
+  const image = await normalizeImage(await loadImageFromFile(file));
+  const compiler = new Compiler();
   await compiler.compileImageTargets([image], onProgress);
   const buffer = await compiler.exportData();
   return new File([buffer], mindFileName(file.name), { type: "application/octet-stream" });
 };
+
+export { MIND_AR_COMPILER_VERSION };

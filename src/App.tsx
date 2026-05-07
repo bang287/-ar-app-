@@ -2,12 +2,17 @@ import { Editor } from "./components/Editor";
 import { Gallery } from "./components/Gallery";
 import { Viewer } from "./components/Viewer";
 import { ARTest } from "./components/ARTest";
+import { MindARSmokeTest } from "./components/MindARSmokeTest";
 
 export const App = () => {
   const path = window.location.pathname;
   const arTestMatch = path.match(/^\/ar-test\/([^/]+)/);
   const viewerMatch = path.match(/^\/viewer\/([^/]+)/);
   const editorMatch = path.match(/^\/editor\/([^/]+)/);
+
+  if (path === "/mindar-smoke-test") {
+    return <MindARSmokeTest />;
+  }
 
   if (arTestMatch) {
     return <ARTest projectId={arTestMatch[1]} />;

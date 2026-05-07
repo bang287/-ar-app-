@@ -24,6 +24,7 @@ import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { buildInfo } from "../buildInfo";
 import type { ARLayer, ARProject, MindCompileResult } from "../types/project";
 import { compileMindTarget as compileMindTargetInBrowser } from "../ar/mindCompiler";
+import { hasAnyMindTarget, hasCurrentMindTarget, MIND_AR_COMPILER_VERSION } from "../ar/mindVersion";
 import { createDefaultProject, createLayer } from "../data/defaultProject";
 import { hydrateRuntimeProject } from "../data/hydrateRuntimeProject";
 import { projectRepository } from "../data/projectRepository";
@@ -65,6 +66,11 @@ const mindLabel = (status: MindStatus, progress: number) => {
   if (status === "compiling") return progress > 0 ? `正在產生 .mind ${progress}%` : "正在產生 .mind";
   if (status === "failed") return ".mind 產生失敗";
   return "尚未產生 .mind";
+};
+
+const triggerFileName = (project: ARProject) => {
+  const source = project.triggerImageId?.split("/").pop() ?? "trigger-image.jpg";
+  return source.replace(/^\d+_[\w-]+_/, "") || "trigger-image.jpg";
 };
 
 export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => {
@@ -144,8 +150,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
         loadedRef.current = true;
         setProject(runtimeProject);
         setSelectedLayerId(runtimeProject.layers[0]?.id ?? null);
-        setMindStatus(runtimeProject.mindTargetId || runtimeProject.mindTargetUrl ? "ready" : "missing");
-        setActivityStatus("專案已載入");
+        setMindStatus(hasCurrentMindTarget(runtimeProject) ? "ready" : "missing");
+        setActivityStatus(hasAnyMindTarget(runtimeProject) && !hasCurrentMindTarget(runtimeProject) ? `請重新產生 .mind（需要 ${MIND_AR_COMPILER_VERSION}）` : "專案已載入");
         setSaveStatus("已自動保存");
       })
       .catch((error) => {
@@ -180,9 +186,9 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
 
   useEffect(() => {
     if (mindStatus !== "compiling") {
-      setMindStatus(project.mindTargetId || project.mindTargetUrl ? "ready" : "missing");
+      setMindStatus(hasCurrentMindTarget(project) ? "ready" : "missing");
     }
-  }, [project.mindTargetId, project.mindTargetUrl, mindStatus]);
+  }, [project.mindTargetId, project.mindTargetUrl, project.mindCompilerVersion, mindStatus]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -372,6 +378,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
       ...current,
       mindTargetId: result.mindTargetId,
       mindTargetUrl: result.mindTargetUrl,
+      mindCompilerVersion: result.mindCompilerVersion ?? MIND_AR_COMPILER_VERSION,
+      mindTargetGeneratedAt: result.mindTargetGeneratedAt ?? new Date().toISOString(),
     };
     setProject(next);
     await saveProjectNow(next);
@@ -383,7 +391,7 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
     setProject(confirmed);
     setMindProgress(100);
     setMindStatus("ready");
-    setActivityStatus(`${successMessage}，已保存並重新讀取確認`);
+    setActivityStatus(`${successMessage}（${next.mindCompilerVersion}），已保存並重新讀取確認`);
   };
 
   const compileMindWithBrowserFallback = async (file: File) => {
@@ -399,6 +407,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
       {
         mindTargetId: mindAsset.id,
         mindTargetUrl: mindAsset.url,
+        mindCompilerVersion: MIND_AR_COMPILER_VERSION,
+        mindTargetGeneratedAt: new Date().toISOString(),
         source: "browser-fallback",
       },
       ".mind 已自動產生並保存",
@@ -419,6 +429,8 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
         thumbnailUrl: triggerAsset.url,
         mindTargetId: undefined,
         mindTargetUrl: undefined,
+        mindCompilerVersion: undefined,
+        mindTargetGeneratedAt: undefined,
       };
       setProject(nextTriggerProject);
       await saveProjectNow(nextTriggerProject);
@@ -444,12 +456,45 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
       setMindError(null);
       setActivityStatus("正在上傳手動 .mind Target");
       const asset = await projectRepository.uploadAsset(projectRef.current.id, file, "mind");
-      await attachMindTarget({ mindTargetId: asset.id, mindTargetUrl: asset.url, source: "browser-fallback" }, ".mind Target 已上傳");
+      await attachMindTarget(
+        {
+          mindTargetId: asset.id,
+          mindTargetUrl: asset.url,
+          mindCompilerVersion: MIND_AR_COMPILER_VERSION,
+          mindTargetGeneratedAt: new Date().toISOString(),
+          source: "browser-fallback",
+        },
+        ".mind Target 已上傳",
+      );
     } catch (error) {
       console.error(error);
       setMindStatus("failed");
       setMindError(friendlyError(error));
       setActivityStatus(`.mind 上傳失敗：${friendlyError(error)}`);
+    }
+  };
+
+  const rebuildMindTarget = async () => {
+    try {
+      const current = projectRef.current;
+      if (!current.triggerImageUrl) {
+        throw new Error("請先上傳 Trigger Image，再重新產生 .mind");
+      }
+
+      setMindError(null);
+      setMindProgress(0);
+      setMindStatus("compiling");
+      setActivityStatus(`正在用 ${MIND_AR_COMPILER_VERSION} 重新產生 .mind`);
+      const response = await fetch(current.triggerImageUrl, { cache: "no-store" });
+      if (!response.ok) throw new Error(`無法讀取 Trigger Image：${response.status} ${response.statusText}`);
+      const blob = await response.blob();
+      const file = new File([blob], triggerFileName(current), { type: blob.type || "image/jpeg" });
+      await compileMindWithBrowserFallback(file);
+    } catch (error) {
+      console.error(error);
+      setMindStatus("failed");
+      setMindError(friendlyError(error));
+      setActivityStatus(`重新產生 .mind 失敗：${friendlyError(error)}`);
     }
   };
 
@@ -537,7 +582,13 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
         <div className={`mind-status-card ${mindStatus}`}>
           <strong>{mindLabel(mindStatus, mindProgress)}</strong>
           <span>{activityStatus}</span>
+          <small>Compiler: {project.mindCompilerVersion ?? "尚未使用新版 compiler"}</small>
           {mindError && <small>{mindError}</small>}
+          {(project.triggerImageUrl || project.triggerImageId) && (
+            <button className="ghost-button mind-rebuild-button" type="button" disabled={mindStatus === "compiling"} onClick={rebuildMindTarget}>
+              重新產生 .mind
+            </button>
+          )}
         </div>
 
         <div className="upload-grid">

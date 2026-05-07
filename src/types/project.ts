@@ -49,6 +49,8 @@ export type ARProject = {
   triggerImageUrl?: string;
   mindTargetId?: string;
   mindTargetUrl?: string;
+  mindCompilerVersion?: string;
+  mindTargetGeneratedAt?: string;
   thumbnailUrl?: string;
   status: ProjectStatus;
   recognitionScore: number;
@@ -69,6 +71,8 @@ export type UploadedAsset = {
 export type MindCompileResult = {
   mindTargetId: string;
   mindTargetUrl: string;
+  mindCompilerVersion?: string;
+  mindTargetGeneratedAt?: string;
   source: "netlify-function" | "supabase-function" | "browser-fallback" | "local-api";
 };
 
