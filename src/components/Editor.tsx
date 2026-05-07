@@ -575,7 +575,9 @@ export const Editor = ({ projectId = "local-demo" }: { projectId?: string }) => 
       <section className="settings-panel">
         <div className="panel-heading">
           <div>
-            <span className="eyebrow">WebAR Editor</span>
+            <a className="eyebrow editor-home-link" href="/">
+              WebAR Editor
+            </a>
             <input className="project-name-input" aria-label="專案名稱" value={project.name} onChange={(event) => updateProject((current) => ({ ...current, name: event.target.value }))} />
           </div>
           <span className="status-dot">{saveStatus}</span>

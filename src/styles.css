@@ -103,6 +103,15 @@ a {
   margin-bottom: 4px;
 }
 
+.editor-home-link {
+  width: fit-content;
+  text-decoration: none;
+}
+
+.editor-home-link:hover {
+  text-decoration: underline;
+}
+
 h1 {
   margin: 0;
   font-size: 20px;

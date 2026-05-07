@@ -126,7 +126,7 @@ export const Gallery = () => {
             <Menu size={21} />
           </button>
           <a className="wordmark" href="/">
-            AR<span>SPACE</span>
+            承氣
           </a>
         </div>
         <label className="search-box">

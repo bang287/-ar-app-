@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Bug, Camera, Clipboard, ExternalLink, Layers, Play, RefreshCw, Smartphone, Video } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bug, Camera, Clipboard, ExternalLink, Home, Layers, Play, RefreshCw, Smartphone, Video } from "lucide-react";
 import type { ARProject } from "../types/project";
 import { buildInfo } from "../buildInfo";
 import { cameraErrorMessage, requestCameraStream, stopMediaStream } from "../ar/camera";
@@ -641,6 +641,9 @@ export const Viewer = ({ projectId }: { projectId: string }) => {
         <div className="viewer-hud">
           <a href={`/editor/${projectId}`} title="Back to editor">
             <ArrowLeft size={18} />
+          </a>
+          <a href="/" title="回首頁">
+            <Home size={18} />
           </a>
           <div>
             <span>{project?.name ?? "WebAR Project"}</span>
