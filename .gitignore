@@ -4,5 +4,6 @@ dist/
 .env
 .env.local
 .env.*.local
+.deploy-clean/
 local-projects/project_*/
 local-projects/folders.json
