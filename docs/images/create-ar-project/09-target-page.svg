@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#0b1115"/>
+  <rect x="30" y="28" width="900" height="68" rx="18" fill="#121b20"/>
+  <text x="72" y="70" font-size="24" font-family="Arial, sans-serif" font-weight="700" fill="#fff">乾淨 Trigger Image 頁</text>
+  <rect x="260" y="136" width="440" height="280" rx="4" fill="#e9dfc8" stroke="#f6f0df" stroke-width="8"/>
+  <circle cx="418" cy="262" r="74" fill="#fff" opacity="0.85"/>
+  <path d="M370 310 C446 206 528 280 450 368" stroke="#4b6040" stroke-width="18" fill="none"/>
+  <text x="236" y="476" font-size="21" font-family="Arial, sans-serif" fill="#d6e2d6">手機掃描時請掃這張乾淨圖片，不要掃 Editor 畫布或截圖。</text>
+  <path d="M718 284 L828 284" stroke="#e0523c" stroke-width="5" marker-end="url(#arrow)"/>
+  <text x="746" y="254" font-size="20" font-family="Arial, sans-serif" fill="#f3c2b8">給手機鏡頭掃描</text>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#e0523c"/></marker></defs>
+</svg>

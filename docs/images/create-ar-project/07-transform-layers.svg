@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#ccd3d6"/>
+  <g stroke="#8d999d" stroke-width="1">
+    <path d="M40 500 L920 150"/>
+    <path d="M40 440 L920 90"/>
+    <path d="M40 380 L920 30"/>
+    <path d="M170 560 L170 0"/>
+    <path d="M300 560 L300 0"/>
+    <path d="M430 560 L430 0"/>
+    <path d="M560 560 L560 0"/>
+    <path d="M690 560 L690 0"/>
+    <path d="M820 560 L820 0"/>
+  </g>
+  <rect x="316" y="190" width="308" height="160" fill="#e7dfc8" stroke="#111" stroke-width="3"/>
+  <rect x="272" y="216" width="180" height="142" fill="#f9f7ee" opacity="0.8" stroke="#457d54" stroke-width="2"/>
+  <rect x="404" y="168" width="188" height="126" fill="#ffffff" opacity="0.55" stroke="#2c6fa3" stroke-width="2"/>
+  <line x1="470" y1="270" x2="628" y2="270" stroke="#e6352e" stroke-width="6"/>
+  <line x1="470" y1="270" x2="470" y2="126" stroke="#35c957" stroke-width="6"/>
+  <line x1="470" y1="270" x2="356" y2="330" stroke="#2459e6" stroke-width="6"/>
+  <circle cx="470" cy="270" r="10" fill="#203040"/>
+  <rect x="64" y="66" width="228" height="228" rx="18" fill="#fff" opacity="0.92" stroke="#d7e1d3"/>
+  <text x="92" y="108" font-size="22" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">Transform</text>
+  <text x="92" y="150" font-size="18" font-family="Arial, sans-serif" fill="#374b39">X / Y：平面位置</text>
+  <text x="92" y="186" font-size="18" font-family="Arial, sans-serif" fill="#374b39">Z：前後深度</text>
+  <text x="92" y="222" font-size="18" font-family="Arial, sans-serif" fill="#374b39">Rotation：旋轉</text>
+  <text x="92" y="258" font-size="18" font-family="Arial, sans-serif" fill="#374b39">Scale：大小</text>
+  <text x="654" y="494" font-size="20" font-family="Arial, sans-serif" fill="#24372a">拖曳紅綠藍控制器，或在左側輸入數值。</text>
+</svg>

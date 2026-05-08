@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#f7fbf4"/>
+  <rect x="24" y="22" width="912" height="64" rx="18" fill="#fff" stroke="#d8e6d3"/>
+  <text x="56" y="63" font-size="30" font-family="Arial, sans-serif" font-weight="700" fill="#23402b">承氣</text>
+  <rect x="180" y="35" width="420" height="38" rx="14" fill="#f4f7f2" stroke="#d8e6d3"/>
+  <text x="206" y="60" font-size="17" font-family="Arial, sans-serif" fill="#69806d">搜尋作品、節氣或資料夾</text>
+  <rect x="740" y="34" width="150" height="40" rx="14" fill="#277d57"/>
+  <text x="779" y="60" font-size="18" font-family="Arial, sans-serif" fill="#fff">建立作品</text>
+  <rect x="42" y="116" width="876" height="92" rx="24" fill="#eaf5e8"/>
+  <text x="74" y="152" font-size="18" font-family="Arial, sans-serif" fill="#6a7e67">二十四節氣工作台</text>
+  <text x="74" y="184" font-size="26" font-family="Arial, sans-serif" font-weight="700" fill="#193820">用花、影像與時間設計自己的 AR 作品</text>
+  <text x="42" y="262" font-size="30" font-family="Arial, sans-serif" font-weight="700" fill="#14261a">資料夾</text>
+  <rect x="42" y="288" width="260" height="86" rx="18" fill="#e8f4ff" stroke="#2995d6" stroke-width="3"/>
+  <text x="124" y="340" font-size="25" font-family="Arial, sans-serif" fill="#17251d">全部作品</text>
+  <rect x="326" y="288" width="260" height="86" rx="18" fill="#f2f1ee"/>
+  <text x="404" y="340" font-size="25" font-family="Arial, sans-serif" fill="#17251d">New Folder</text>
+  <text x="42" y="426" font-size="30" font-family="Arial, sans-serif" font-weight="700" fill="#14261a">作品</text>
+  <rect x="42" y="454" width="210" height="78" rx="16" fill="#fff" stroke="#d8e6d3"/>
+  <rect x="42" y="454" width="210" height="48" rx="16" fill="#d8dbc5"/>
+  <text x="60" y="520" font-size="17" font-family="Arial, sans-serif" fill="#14261a">白鷺曇花</text>
+  <circle cx="755" cy="54" r="34" fill="none" stroke="#e0523c" stroke-width="4"/>
+  <path d="M760 88 L812 126" stroke="#e0523c" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="812" y="138" font-size="20" font-family="Arial, sans-serif" font-weight="700" fill="#b33a28">從這裡建立新作品</text>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#e0523c"/>
+    </marker>
+  </defs>
+</svg>

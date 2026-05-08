@@ -122,7 +122,7 @@ tsc --noEmit && vite build
 - 正式 demo 優先用 Netlify URL。
 - Viewer 必須有目前版本的 `.mind` 才能掃描。
 - 掃描時要掃 `/target/:projectId` 的乾淨 Trigger Image，不要掃 Editor 畫布截圖。
-- AR 穩定化在 `src/ar/projectMindARSession.ts`，不要重寫影像追蹤引擎。
+- AR 圖層目前直接掛在 MindAR `anchor.group`，優先保持掃描後能穩定顯示平台圖層效果；不要重寫影像追蹤引擎。
 
 ## 錄影功能注意事項
 

@@ -18,7 +18,7 @@ https://chengqi-ar-design-platform.netlify.app
 - Trigger Image：上傳後產生 MindAR `.mind` target。
 - 背景透明化：每層支援 chroma key 顏色、threshold、softness。
 - 手機 AR：MindAR image tracking 掃描 Trigger Image 後顯示平台設定的圖層效果。
-- 穩定化：Viewer 會對 AR anchor 做平滑處理，降低手機掃描時的抖動。
+- AR 顯示：Viewer 會把圖層直接掛在 MindAR anchor 上，優先保持掃描後可正確顯示平台效果。
 - 錄影：手機端可錄製相機背景與 AR 圖層合成畫面。
 
 ## 技術
@@ -122,7 +122,7 @@ src/App.tsx                         路由入口
 src/components/Gallery.tsx          作品庫首頁
 src/components/Editor.tsx           3D 編輯器
 src/components/Viewer.tsx           手機 AR Viewer + 錄影
-src/ar/projectMindARSession.ts      MindAR 啟動、追蹤與穩定化
+src/ar/projectMindARSession.ts      MindAR 啟動、追蹤與圖層掛載
 src/ar/runtimeLayerMesh.ts          Viewer 圖層 mesh
 src/data/projectRepository.ts       資料存取入口
 src/data/supabaseProjectRepository.ts Supabase repository
@@ -131,5 +131,6 @@ supabase/schema.sql                 DB / RLS / Storage policy
 
 ## 文件
 
+- [docs/CREATE_AR_PROJECT_GUIDE.md](docs/CREATE_AR_PROJECT_GUIDE.md)
 - [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)
 - [AGENTS.md](AGENTS.md)

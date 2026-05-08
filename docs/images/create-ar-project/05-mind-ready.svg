@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#f7fbf4"/>
+  <rect x="90" y="96" width="780" height="112" rx="20" fill="#eefbf0" stroke="#53ba6b"/>
+  <text x="126" y="144" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#17672a">.mind ready</text>
+  <text x="126" y="178" font-size="18" font-family="Arial, sans-serif" fill="#386345">專案已載入，手機 Viewer 可以進入圖片辨識流程。</text>
+  <rect x="90" y="250" width="360" height="70" rx="16" fill="#fff" stroke="#bfd2bd"/>
+  <text x="126" y="294" font-size="21" font-family="Arial, sans-serif" fill="#243b2b">重新產生 .mind</text>
+  <rect x="510" y="250" width="360" height="70" rx="16" fill="#fff7ec" stroke="#e0c79a"/>
+  <text x="546" y="294" font-size="21" font-family="Arial, sans-serif" fill="#70491a">如果換 Trigger，請重新產生</text>
+  <path d="M290 212 L290 246" stroke="#53ba6b" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="90" y="396" font-size="22" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">確認重點</text>
+  <text x="90" y="432" font-size="19" font-family="Arial, sans-serif" fill="#425946">看到 .mind ready 後，再新增圖層或開手機掃描。</text>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#53ba6b"/></marker></defs>
+</svg>

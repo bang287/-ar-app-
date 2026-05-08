@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#f8fbf6"/>
+  <rect x="74" y="74" width="360" height="390" rx="22" fill="#fff" stroke="#d9e5d4"/>
+  <text x="110" y="126" font-size="26" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">背景透明化</text>
+  <rect x="110" y="160" width="286" height="50" rx="12" fill="#eef8ed"/>
+  <text x="146" y="192" font-size="19" font-family="Arial, sans-serif" fill="#193820">啟用色鍵去背</text>
+  <rect x="110" y="246" width="82" height="44" rx="10" fill="#00ff55" stroke="#45644c"/>
+  <text x="212" y="275" font-size="18" font-family="Arial, sans-serif" fill="#24372a">選擇要透明的顏色</text>
+  <line x1="110" y1="340" x2="396" y2="340" stroke="#c4d2c1" stroke-width="8"/>
+  <circle cx="248" cy="340" r="16" fill="#2f8fca"/>
+  <text x="110" y="324" font-size="17" font-family="Arial, sans-serif" fill="#506354">Threshold</text>
+  <line x1="110" y1="410" x2="396" y2="410" stroke="#c4d2c1" stroke-width="8"/>
+  <circle cx="206" cy="410" r="16" fill="#2f8fca"/>
+  <text x="110" y="394" font-size="17" font-family="Arial, sans-serif" fill="#506354">Softness</text>
+  <rect x="540" y="110" width="290" height="330" rx="24" fill="#e9eddc"/>
+  <rect x="590" y="155" width="190" height="230" rx="18" fill="#00ff55"/>
+  <circle cx="668" cy="250" r="72" fill="#fff"/>
+  <path d="M634 287 C688 210 728 268 688 337" stroke="#4f704e" stroke-width="14" fill="none"/>
+  <text x="548" y="482" font-size="19" font-family="Arial, sans-serif" fill="#374b39">選對 key color 後，綠色背景會在 Editor / Viewer 中變透明。</text>
+</svg>

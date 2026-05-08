@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#f9fbf6"/>
+  <rect x="58" y="60" width="304" height="440" rx="22" fill="#fff" stroke="#dbe6d5"/>
+  <rect x="92" y="112" width="236" height="66" rx="14" fill="#fff" stroke="#8ba98f" stroke-dasharray="6 5"/>
+  <text x="121" y="153" font-size="19" font-family="Arial, sans-serif" fill="#1f3426">新增圖片 / 影片圖層（可多選）</text>
+  <text x="92" y="230" font-size="20" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">圖層</text>
+  <rect x="92" y="254" width="236" height="58" rx="13" fill="#fff" stroke="#2b91d0" stroke-width="3"/>
+  <text x="132" y="290" font-size="18" font-family="Arial, sans-serif" fill="#1f3426">圖層 3</text>
+  <rect x="92" y="324" width="236" height="58" rx="13" fill="#fff" stroke="#d8e1d4"/>
+  <text x="132" y="360" font-size="18" font-family="Arial, sans-serif" fill="#1f3426">圖層 2</text>
+  <rect x="92" y="394" width="236" height="58" rx="13" fill="#fff" stroke="#d8e1d4"/>
+  <text x="132" y="430" font-size="18" font-family="Arial, sans-serif" fill="#1f3426">圖層 1</text>
+  <rect x="520" y="130" width="310" height="270" rx="24" fill="#edf3ef" stroke="#cbd8cc"/>
+  <text x="548" y="184" font-size="24" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">一次選多個檔案</text>
+  <text x="548" y="226" font-size="19" font-family="Arial, sans-serif" fill="#536b56">支援圖片與影片。</text>
+  <text x="548" y="262" font-size="19" font-family="Arial, sans-serif" fill="#536b56">每個檔案會自動成為一層。</text>
+  <text x="548" y="298" font-size="19" font-family="Arial, sans-serif" fill="#536b56">新增後可調整順序、Z 深度與透明化。</text>
+  <circle cx="210" cy="145" r="42" fill="none" stroke="#e0523c" stroke-width="5"/>
+  <path d="M252 145 L508 190" stroke="#e0523c" stroke-width="4" marker-end="url(#arrow)"/>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#e0523c"/></marker></defs>
+</svg>

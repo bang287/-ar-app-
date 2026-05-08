@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#f8fbf6"/>
+  <rect x="250" y="128" width="460" height="264" rx="22" fill="#fff" stroke="#d9e5d4"/>
+  <text x="292" y="184" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">建立 AR 作品</text>
+  <text x="292" y="224" font-size="18" font-family="Arial, sans-serif" fill="#647366">輸入作品名稱，例如：清明 桐花 專案</text>
+  <rect x="292" y="250" width="376" height="48" rx="12" fill="#f5f8f2" stroke="#cbd9c5"/>
+  <text x="314" y="281" font-size="18" font-family="Arial, sans-serif" fill="#1f3324">清明 桐花 專案</text>
+  <rect x="292" y="330" width="160" height="46" rx="14" fill="#277d57"/>
+  <text x="338" y="359" font-size="18" font-family="Arial, sans-serif" fill="#fff">建立</text>
+  <rect x="472" y="330" width="160" height="46" rx="14" fill="#eef2ec" stroke="#d6e0d2"/>
+  <text x="520" y="359" font-size="18" font-family="Arial, sans-serif" fill="#4b594d">取消</text>
+  <text x="120" y="72" font-size="22" font-family="Arial, sans-serif" font-weight="700" fill="#17331d">步驟 1：命名作品</text>
+  <text x="120" y="104" font-size="18" font-family="Arial, sans-serif" fill="#627565">名稱會出現在作品卡、Editor 與手機 Viewer。</text>
+</svg>

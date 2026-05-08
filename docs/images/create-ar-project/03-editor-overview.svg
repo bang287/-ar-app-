@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#edf3ef"/>
+  <rect x="0" y="0" width="236" height="560" fill="#fbfcfa"/>
+  <text x="34" y="48" font-size="17" font-family="Arial, sans-serif" fill="#277d57">WebAR Editor</text>
+  <text x="34" y="82" font-size="27" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">清明 桐花 專案</text>
+  <rect x="34" y="118" width="168" height="48" rx="12" fill="#fff" stroke="#9fbba0" stroke-dasharray="5 4"/>
+  <text x="66" y="149" font-size="17" font-family="Arial, sans-serif" fill="#233629">Trigger Image</text>
+  <rect x="34" y="182" width="168" height="48" rx="12" fill="#fff" stroke="#9fbba0" stroke-dasharray="5 4"/>
+  <text x="72" y="213" font-size="17" font-family="Arial, sans-serif" fill="#233629">手動 .mind</text>
+  <rect x="34" y="250" width="168" height="54" rx="12" fill="#fff" stroke="#9fbba0" stroke-dasharray="5 4"/>
+  <text x="54" y="283" font-size="16" font-family="Arial, sans-serif" fill="#233629">新增圖片 / 影片圖層</text>
+  <text x="34" y="344" font-size="18" font-family="Arial, sans-serif" font-weight="700" fill="#18351f">圖層</text>
+  <rect x="34" y="366" width="168" height="52" rx="12" fill="#fff" stroke="#d5dfd2"/>
+  <text x="66" y="398" font-size="17" font-family="Arial, sans-serif" fill="#253c2a">圖層 1</text>
+  <rect x="236" y="0" width="724" height="560" fill="#cbd1d3"/>
+  <g stroke="#8b969b" stroke-width="1">
+    <path d="M250 520 L920 180"/>
+    <path d="M250 460 L920 120"/>
+    <path d="M250 400 L920 60"/>
+    <path d="M330 560 L330 0"/>
+    <path d="M430 560 L430 0"/>
+    <path d="M530 560 L530 0"/>
+    <path d="M630 560 L630 0"/>
+    <path d="M730 560 L730 0"/>
+  </g>
+  <rect x="476" y="206" width="278" height="146" fill="#e4ddc8" stroke="#111" stroke-width="3"/>
+  <circle cx="552" cy="278" r="45" fill="#fff" opacity="0.8"/>
+  <line x1="615" y1="280" x2="715" y2="280" stroke="#e6352e" stroke-width="5"/>
+  <line x1="615" y1="280" x2="615" y2="198" stroke="#35c957" stroke-width="5"/>
+  <line x1="615" y1="280" x2="555" y2="310" stroke="#2459e6" stroke-width="5"/>
+  <rect x="562" y="252" width="32" height="32" fill="#e6352e" opacity="0.6"/>
+  <rect x="604" y="252" width="32" height="32" fill="#2459e6" opacity="0.6"/>
+  <text x="268" y="536" font-size="18" font-family="Arial, sans-serif" fill="#26342b">左側設定素材與圖層，右側 3D 畫布調整空間位置。</text>
+</svg>

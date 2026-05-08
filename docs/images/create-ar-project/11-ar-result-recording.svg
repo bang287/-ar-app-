@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="#15191d"/>
+  <rect x="0" y="0" width="960" height="560" fill="#8f744f"/>
+  <rect x="0" y="128" width="960" height="80" fill="#2c3438"/>
+  <rect x="90" y="172" width="780" height="250" fill="#e4dcc6" stroke="#111" stroke-width="5"/>
+  <rect x="166" y="150" width="320" height="256" fill="#ffffff" opacity="0.9" stroke="#467a55" stroke-width="3"/>
+  <rect x="454" y="116" width="260" height="220" fill="#eef3ee" opacity="0.72" stroke="#2e6fa5" stroke-width="3"/>
+  <circle cx="360" cy="282" r="92" fill="#fff" opacity="0.92"/>
+  <path d="M302 344 C396 220 496 316 386 438" stroke="#4d6846" stroke-width="22" fill="none" opacity="0.75"/>
+  <rect x="170" y="34" width="620" height="74" rx="18" fill="#111" opacity="0.72"/>
+  <text x="204" y="67" font-size="18" font-family="Arial, sans-serif" fill="#dce7de">清明 桐花 專案</text>
+  <text x="204" y="94" font-size="24" font-family="Arial, sans-serif" font-weight="700" fill="#fff">已辨識 Trigger Image，顯示 3 個 AR 圖層</text>
+  <circle cx="480" cy="490" r="46" fill="#fff" opacity="0.9"/>
+  <circle cx="480" cy="490" r="28" fill="#d93324"/>
+  <text x="542" y="500" font-size="21" font-family="Arial, sans-serif" fill="#fff">按紅色按鈕錄影，再按一次停止</text>
+</svg>
